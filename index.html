@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bankroll ARG - Monopoly Argentino</title>
+    <meta name="description" content="Juego de mesa estilo Monopoly con temática argentina actual">
+  </head>
+  <body>
+    <div id="app">
+      <header class="game-header">
+        <h1>Bankroll ARG</h1>
+        <div class="game-controls">
+          <button id="new-game-btn">Nueva Partida</button>
+          <button id="pause-btn">Pausa</button>
+          <button id="rules-btn">Reglas</button>
+        </div>
+      </header>
+      
+      <!-- Modal de configuración del juego -->
+      <div id="game-setup-modal" class="modal">
+        <div class="modal-content">
+          <h2>🎮 Nueva Partida</h2>
+          <div class="setup-section">
+            <h3>Selecciona la cantidad de jugadores:</h3>
+            <div class="player-buttons">
+              <button class="player-count-btn" data-count="2">2 Jugadores</button>
+              <button class="player-count-btn" data-count="3">3 Jugadores</button>
+              <button class="player-count-btn" data-count="4">4 Jugadores</button>
+              <button class="player-count-btn" data-count="5">5 Jugadores</button>
+            </div>
+          </div>
+          <div class="setup-section">
+            <h3>🎯 Condiciones de Victoria:</h3>
+            <p>🏆 <strong>Ganar:</strong> Conseguir $7.500.000</p>
+            <p>💸 <strong>Perder:</strong> Llegar a -$1.000.000 (bancarrota)</p>
+          </div>
+          <div class="modal-actions">
+            <button id="start-game-btn" disabled>¡Comenzar Partida!</button>
+            <button id="cancel-setup-btn">Cancelar</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Modal de Game Over -->
+      <div id="game-over-modal" class="modal">
+        <div class="modal-content game-over">
+          <div id="game-over-content">
+            <!-- Contenido dinámico -->
+          </div>
+          <div class="modal-actions">
+            <button id="play-again-btn">🔄 Jugar de Nuevo</button>
+            <button id="close-game-over-btn">Cerrar</button>
+          </div>
+        </div>
+      </div>
+      
+      <main class="game-container">
+        <div class="board-container">
+          <canvas id="game-canvas" width="600" height="600"></canvas>
+        </div>
+        
+        <aside class="game-panel">
+          <div class="player-info">
+            <h3>Información del Jugador</h3>
+            <div id="current-player"></div>
+            <div id="player-money"></div>
+            <div id="player-properties"></div>
+          </div>
+          
+          <div class="game-status">
+            <h3>Estado del Juego</h3>
+            <div id="game-progress">
+              <div class="progress-item">
+                <span class="label">Meta Victoria:</span>
+                <span class="value money">$7.500.000</span>
+              </div>
+              <div class="progress-item">
+                <span class="label">Límite Bancarrota:</span>
+                <span class="value danger">-$1.000.000</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="game-actions">
+            <button id="roll-dice-btn">Tirar Dados</button>
+            <button id="buy-property-btn" disabled>Comprar Propiedad</button>
+            <button id="end-turn-btn" disabled>Terminar Turno</button>
+          </div>
+          
+          <div class="dice-container">
+            <div id="dice1" class="dice">?</div>
+            <div id="dice2" class="dice">?</div>
+          </div>
+          
+          <div class="game-log">
+            <h4>Registro del Juego</h4>
+            <div id="log-messages"></div>
+          </div>
+          
+          <div class="all-players">
+            <h4>Todos los Jugadores</h4>
+            <div id="all-players-info"></div>
+          </div>
+        </aside>
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
