@@ -214,20 +214,12 @@ export class Board {
     let accentColor = '#cccccc';
     
     if (space.type === 'PROPERTY' && space.group) {
-      const groupColors = {
-        'brown': ['#8B4513', '#D2691E'],
-        'light_blue': ['#87CEEB', '#4682B4'], 
-        'pink': ['#FF69B4', '#FF1493'],
-        'orange': ['#FF8C00', '#FF4500'],
-        'red': ['#DC143C', '#B22222'],
-        'yellow': ['#FFD700', '#FFA500'],
-        'green': ['#32CD32', '#228B22'],
-        'blue': ['#4169E1', '#1E90FF']
-      };
-      
-      const colors = groupColors[space.group] || ['#ffffff', '#cccccc'];
-      bgColor = colors[0];
-      accentColor = colors[1];
+      // Obtener el color del grupo
+      const groupInfo = this.groups[space.group];
+      if (groupInfo) {
+        bgColor = groupInfo.color;
+        accentColor = this.darkenColor(groupInfo.color, 20);
+      }
     } else {
       // Colores para casillas especiales
       switch(space.type) {
@@ -548,5 +540,17 @@ export class Board {
   
   getSpace(spaceIndex) {
     return this.spaces[spaceIndex];
+  }
+
+  // Función auxiliar para oscurecer colores
+  darkenColor(color, amount) {
+    const num = parseInt(color.replace("#", ""), 16);
+    const amt = Math.round(2.55 * amount);
+    const R = (num >> 16) - amt;
+    const G = (num >> 8 & 0x00FF) - amt;
+    const B = (num & 0x0000FF) - amt;
+    return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+      (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+      (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
   }
 }
