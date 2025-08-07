@@ -30,6 +30,7 @@ export class Game {
     this.minPlayers = 2;
     this.maxPlayers = 5;
     this.selectedPlayerCount = 2; // Por defecto 2 jugadores
+    this.customPlayerNames = []; // Nombres personalizados de jugadores
     
     // Cartas
     this.communityChestDeck = shuffleCards(communityChestCards);
@@ -70,6 +71,14 @@ export class Game {
     }
     return false;
   }
+
+  setCustomPlayerNames(names) {
+    if (Array.isArray(names) && names.length > 0) {
+      this.customPlayerNames = [...names];
+      return true;
+    }
+    return false;
+  }
   
   initializeGame() {
     // Limpiar jugadores anteriores
@@ -86,8 +95,13 @@ export class Game {
     this.waitingForBuyDecision = false;
     
     // Colores predefinidos para los jugadores
-    const playerColors = ['#FF0000', '#0000FF', '#00FF00', '#FFFF00', '#FF00FF'];
-    const playerNames = ['Rojo', 'Azul', 'Verde', 'Amarillo', 'Magenta'];
+    const playerColors = ['#FF0000', '#0000FF', '#00AA00', '#FFD700', '#FF00FF'];
+    const defaultNames = ['Rojo', 'Azul', 'Verde', 'Amarillo', 'Magenta'];
+    
+    // Usar nombres personalizados si están disponibles, sino usar por defecto
+    const playerNames = this.customPlayerNames.length >= this.selectedPlayerCount 
+      ? this.customPlayerNames.slice(0, this.selectedPlayerCount)
+      : defaultNames.slice(0, this.selectedPlayerCount);
     
     // Crear jugadores según la cantidad seleccionada
     for (let i = 0; i < this.selectedPlayerCount; i++) {

@@ -33,6 +33,17 @@
             </div>
           </div>
           
+          <!-- Sección de nombres de jugadores -->
+          <div id="player-names-section" class="setup-section" style="display: none;">
+            <h3>✏️ Ingresa los nombres de los jugadores:</h3>
+            <div id="player-names-container" class="player-names-container">
+              <!-- Los campos de nombre se generarán dinámicamente aquí -->
+            </div>
+            <div class="names-info">
+              <p class="info-text">💡 Si dejas un campo vacío, se usará el nombre por defecto (Jugador 1, Jugador 2, etc.)</p>
+            </div>
+          </div>
+          
           <div class="setup-section">
             <h3>💰 Configura el monto para ganar:</h3>
             <div class="win-amount-section">
@@ -113,6 +124,35 @@
       </div>
       
       <main class="game-container">
+        <aside class="game-panel-left">
+          <div class="player-info">
+            <h3>Información del Jugador</h3>
+            <div id="current-player"></div>
+            <div id="player-money"></div>
+            <div id="player-properties"></div>
+          </div>
+          
+          <div class="game-status">
+            <h3>Estado del Juego</h3>
+            <div id="game-progress">
+              <div class="progress-item">
+                <span class="label">Meta Victoria:</span>
+                <span class="value money">$7.500.000</span>
+              </div>
+              <div class="progress-item">
+                <span class="label">Límite Bancarrota:</span>
+                <span class="value danger">-$1.000.000</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="game-actions">
+            <button id="roll-dice-btn">Tirar Dados</button>
+            <button id="buy-property-btn" disabled>Comprar Propiedad</button>
+            <button id="end-turn-btn" disabled>Terminar Turno</button>
+          </div>
+        </aside>
+
         <div class="board-container">
           <canvas id="game-canvas" width="600" height="600"></canvas>
           
@@ -143,37 +183,9 @@
             </div>
           </div>
         </div>
-        
-        <aside class="game-panel">
-          <div class="player-info">
-            <h3>Información del Jugador</h3>
-            <div id="current-player"></div>
-            <div id="player-money"></div>
-            <div id="player-properties"></div>
-          </div>
-          
-          <div class="game-status">
-            <h3>Estado del Juego</h3>
-            <div id="game-progress">
-              <div class="progress-item">
-                <span class="label">Meta Victoria:</span>
-                <span class="value money">$7.500.000</span>
-              </div>
-              <div class="progress-item">
-                <span class="label">Límite Bancarrota:</span>
-                <span class="value danger">-$1.000.000</span>
-              </div>
-            </div>
-          </div>
-          
-          <div class="game-actions">
-            <button id="roll-dice-btn">Tirar Dados</button>
-            <button id="buy-property-btn" disabled>Comprar Propiedad</button>
-            <button id="end-turn-btn" disabled>Terminar Turno</button>
-          </div>
-          
-          <div class="all-players">
-            <h4>Todos los Jugadores</h4>
+
+        <aside class="game-panel-right">
+          <div class="all-players">            
             <div id="all-players-info"></div>
           </div>
         </aside>

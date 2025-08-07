@@ -5,6 +5,7 @@ export class GameUI {
     this.currentTurnTime = 60;
     this.selectedPlayerCount = 0;
     this.selectedWinAmount = 7500000; // Valor por defecto
+    this.customPlayerNames = []; // Array para nombres personalizados
     
     this.elements = {
       currentPlayer: document.getElementById('current-player'),
@@ -41,6 +42,10 @@ export class GameUI {
       setCustomAmountBtn: document.getElementById('set-custom-amount-btn'),
       startGameBtn: document.getElementById('start-game-btn'),
       cancelSetupBtn: document.getElementById('cancel-setup-btn'),
+      
+      // Elementos de nombres de jugadores
+      playerNamesSection: document.getElementById('player-names-section'),
+      playerNamesContainer: document.getElementById('player-names-container'),
       
       // Elementos de resumen
       summaryPlayers: document.getElementById('summary-players'),
@@ -212,7 +217,7 @@ export class GameUI {
     
     // Actualizar nombre del jugador actual
     this.elements.currentTurnPlayer.textContent = `Turno de ${currentPlayer.name}`;
-    this.elements.currentTurnPlayer.style.color = this.getPlayerColor(currentPlayer.name);
+    this.elements.currentTurnPlayer.style.color = this.getPlayerColor(currentPlayer);
     
     // Actualizar estado del turno
     let statusMessage = '';
@@ -413,7 +418,7 @@ export class GameUI {
       const activeHeader = document.createElement('h5');
       activeHeader.textContent = '🎮 Jugadores Activos';
       activeHeader.className = 'section-header';
-      this.elements.allPlayersInfo.appendChild(activeHeader);
+      //this.elements.allPlayersInfo.appendChild(activeHeader);
       
       sortedActivePlayers.forEach((player, index) => {
         const playerDiv = document.createElement('div');
@@ -440,7 +445,7 @@ export class GameUI {
         
         playerDiv.innerHTML = `
           <div class="player-header">
-            <div class="player-name" style="color: ${this.getPlayerColor(player.name)}">
+            <div class="player-name" style="color: ${this.getPlayerColor(player)}">
               <strong>${index + 1}. ${player.name}</strong> ${status}
             </div>
             <div class="player-position">Posición: ${player.position}</div>
@@ -450,21 +455,6 @@ export class GameUI {
               <div class="main-money">💰 <strong>$${player.money.toLocaleString()}</strong></div>
               <div class="wealth-info">
                 <small>Patrimonio: $${(player.totalWealth || player.money).toLocaleString()}</small>
-              </div>
-            </div>
-            <div class="properties-info">
-              <div class="property-counts">
-                � ${player.properties || 0} | 🚂 ${player.railroads || 0} | ⚡ ${player.utilities || 0}
-                <span class="total-props">(Total: ${(player.properties || 0) + (player.railroads || 0) + (player.utilities || 0)})</span>
-              </div>
-            </div>
-            <div class="progress-bars">
-              <div class="progress-item">
-                <label>Progreso a Victoria:</label>
-                <div class="progress-bar">
-                  <div class="progress-fill win" style="width: ${progressToWin}%"></div>
-                </div>
-                <small>${progressToWin.toFixed(1)}%</small>
               </div>
             </div>
           </div>
@@ -486,7 +476,7 @@ export class GameUI {
         playerDiv.className = 'player-summary bankrupt-player';
         
         playerDiv.innerHTML = `
-          <div class="player-name" style="color: ${this.getPlayerColor(player.name)}">
+          <div class="player-name" style="color: ${this.getPlayerColor(player)}">
             ${player.name} 💀 ELIMINADO
           </div>
           <div class="player-stats">
@@ -499,15 +489,24 @@ export class GameUI {
     }
   }
   
-  getPlayerColor(playerName) {
-    const colors = {
-      'Rojo': '#FF0000',
-      'Azul': '#0000FF',
-      'Verde': '#00FF00',
-      'Amarillo': '#FFFF00',
-      'Magenta': '#FF00FF'
-    };
-    return colors[playerName] || '#000000';
+  getPlayerColor(player) {
+    // Usar el índice del jugador para obtener el color correcto
+    const colors = ['#FF0000', '#0000FF', '#00AA00', '#FFD700', '#FF00FF'];
+    
+    if (typeof player === 'object' && player.id !== undefined) {
+      // Si es un objeto jugador, usar su id
+      return colors[player.id] || '#000000';
+    } else {
+      // Fallback para compatibilidad con nombres por defecto
+      const colorMap = {
+        'Rojo': '#FF0000',
+        'Azul': '#0000FF', 
+        'Verde': '#00AA00',
+        'Amarillo': '#FFD700',
+        'Magenta': '#FF00FF'
+      };
+      return colorMap[player] || '#000000';
+    }
   }
   
   showGameSetup() {
@@ -516,11 +515,17 @@ export class GameUI {
     // Resetear selecciones
     this.selectedPlayerCount = 0;
     this.selectedWinAmount = 7500000; // Valor por defecto
+    this.customPlayerNames = []; // Resetear nombres personalizados
     
     // Limpiar selecciones anteriores
     this.elements.playerCountBtns.forEach(btn => {
       btn.classList.remove('selected');
     });
+    
+    // Ocultar sección de nombres inicialmente
+    if (this.elements.playerNamesSection) {
+      this.elements.playerNamesSection.style.display = 'none';
+    }
     
     // Seleccionar monto por defecto (Clásico)
     this.elements.winAmountBtns.forEach(btn => {
@@ -557,11 +562,108 @@ export class GameUI {
     selectedBtn.classList.add('selected');
     this.selectedPlayerCount = parseInt(selectedBtn.dataset.count);
     
+    // Generar campos de nombres de jugadores
+    this.generatePlayerNameInputs();
+    
     // Actualizar resumen
     this.updateGameSummary();
     
     // Verificar si se puede iniciar el juego
     this.checkCanStartGame();
+  }
+
+  generatePlayerNameInputs() {
+    if (!this.elements.playerNamesSection || !this.elements.playerNamesContainer) {
+      console.warn('Elementos de nombres de jugadores no encontrados');
+      return;
+    }
+
+    // Mostrar/ocultar la sección según el número de jugadores
+    if (this.selectedPlayerCount > 0) {
+      this.elements.playerNamesSection.style.display = 'block';
+      
+      // Limpiar container anterior
+      this.elements.playerNamesContainer.innerHTML = '';
+      
+      // Nombres y colores por defecto
+      const defaultNames = ['Rojo', 'Azul', 'Verde', 'Amarillo', 'Magenta'];
+      const playerColors = ['#FF0000', '#0000FF', '#00AA00', '#FFD700', '#FF00FF'];
+      
+      // Resetear array de nombres personalizados
+      this.customPlayerNames = [];
+      
+      // Generar campos para cada jugador
+      for (let i = 0; i < this.selectedPlayerCount; i++) {
+        const playerGroup = document.createElement('div');
+        playerGroup.className = 'player-name-group';
+        
+        const colorIndicator = document.createElement('div');
+        colorIndicator.className = 'player-color-indicator';
+        colorIndicator.style.backgroundColor = playerColors[i];
+        
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'player-name-input';
+        nameInput.placeholder = `Jugador ${i + 1} (por defecto: ${defaultNames[i]})`;
+        nameInput.dataset.playerIndex = i;
+        nameInput.dataset.defaultName = defaultNames[i];
+        nameInput.maxLength = 15;
+        
+        // Event listener para validar entrada
+        nameInput.addEventListener('input', (e) => {
+          this.validatePlayerName(e.target);
+        });
+        
+        // Event listener para actualizar nombres personalizados
+        nameInput.addEventListener('change', (e) => {
+          this.updateCustomPlayerNames();
+        });
+        
+        playerGroup.appendChild(colorIndicator);
+        playerGroup.appendChild(nameInput);
+        this.elements.playerNamesContainer.appendChild(playerGroup);
+        
+        // Inicializar con nombre por defecto
+        this.customPlayerNames.push(defaultNames[i]);
+      }
+    } else {
+      this.elements.playerNamesSection.style.display = 'none';
+      this.customPlayerNames = [];
+    }
+  }
+
+  validatePlayerName(input) {
+    // Remover caracteres especiales y números
+    let value = input.value.replace(/[^a-zA-ZáéíóúñüÁÉÍÓÚÑÜ\s]/g, '');
+    
+    // Limitar a 15 caracteres
+    if (value.length > 15) {
+      value = value.substring(0, 15);
+    }
+    
+    // Capitalizar primera letra
+    if (value.length > 0) {
+      value = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+    }
+    
+    input.value = value;
+  }
+
+  updateCustomPlayerNames() {
+    const nameInputs = this.elements.playerNamesContainer.querySelectorAll('.player-name-input');
+    
+    nameInputs.forEach((input, index) => {
+      const customName = input.value.trim();
+      const defaultName = input.dataset.defaultName;
+      
+      // Usar nombre personalizado si está disponible, sino usar por defecto
+      this.customPlayerNames[index] = customName || defaultName;
+    });
+  }
+
+  getPlayerNames() {
+    // Retornar nombres personalizados si están configurados
+    return this.customPlayerNames.length > 0 ? [...this.customPlayerNames] : [];
   }
   
   selectWinAmount(selectedBtn) {
@@ -676,9 +778,13 @@ export class GameUI {
   }
   
   startGame() {
+    // Actualizar nombres personalizados antes de iniciar
+    this.updateCustomPlayerNames();
+    
     // Configurar el juego con las opciones seleccionadas
     this.game.setPlayerCount(this.selectedPlayerCount);
     this.game.setWinLimit(this.selectedWinAmount);
+    this.game.setCustomPlayerNames(this.getPlayerNames());
     
     this.hideGameSetup();
     this.clearLog();
