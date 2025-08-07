@@ -3,6 +3,7 @@ import { Player } from '../player/Player.js';
 import { communityChestCards, chanceCards, shuffleCards } from '../board/cards.js';
 import { boardSpaces } from '../board/spaces.js';
 import { DiceAnimation } from '../ui/DiceAnimation.js';
+import SoundManager from '../utils/SoundManager.js';
 
 export class Game {
   constructor(canvas) {
@@ -10,6 +11,9 @@ export class Game {
     this.ctx = canvas.getContext('2d');
     this.board = new Board(canvas, this.ctx);
     this.diceAnimation = new DiceAnimation(canvas);
+    
+    // Administrador de sonidos
+    this.soundManager = new SoundManager();
     
     // Estado del juego
     this.players = [];
@@ -278,6 +282,8 @@ export class Game {
       
       if (currentPlayer.pay(rent)) {
         owner.receive(rent);
+        // Reproducir sonido de caja registradora para pago de alquiler
+        this.soundManager.playPayment();
         this.logMessage(`💸 ${currentPlayer.name} paga $${rent.toLocaleString()} de alquiler a ${owner.name}`);
       } else {
         this.logMessage(`💸 ${currentPlayer.name} no puede pagar el alquiler de $${rent.toLocaleString()}!`);
@@ -311,6 +317,8 @@ export class Game {
       
       if (currentPlayer.pay(rent)) {
         owner.receive(rent);
+        // Reproducir sonido de caja registradora para pago de ferrocarril
+        this.soundManager.playPayment();
         this.logMessage(`💸 ${currentPlayer.name} paga $${rent.toLocaleString()} por usar ${space.name}`);
       } else {
         this.logMessage(`💸 ${currentPlayer.name} no puede pagar $${rent.toLocaleString()}!`);
@@ -345,6 +353,8 @@ export class Game {
       
       if (currentPlayer.pay(rent)) {
         owner.receive(rent);
+        // Reproducir sonido de caja registradora para pago de servicio público
+        this.soundManager.playPayment();
         this.logMessage(`💸 ${currentPlayer.name} paga $${rent.toLocaleString()} por usar ${space.name} (dados: ${diceTotal})`);
       } else {
         this.logMessage(`💸 ${currentPlayer.name} no puede pagar $${rent.toLocaleString()}!`);
@@ -361,6 +371,8 @@ export class Game {
     const currentPlayer = this.getCurrentPlayer();
     
     if (currentPlayer.pay(space.amount)) {
+      // Reproducir sonido de caja registradora para pago de impuestos
+      this.soundManager.playPayment();
       this.logMessage(`💸 ${currentPlayer.name} paga $${space.amount.toLocaleString()} en impuestos (${space.name})`);
       this.logMessage(`💰 ${currentPlayer.name} ahora tiene $${currentPlayer.money.toLocaleString()}`);
     } else {
@@ -393,10 +405,14 @@ export class Game {
     switch (card.action) {
       case 'COLLECT':
         currentPlayer.receive(card.amount);
+        // Reproducir sonido de caja registradora al recibir dinero
+        this.soundManager.playPurchase();
         this.logMessage(`${currentPlayer.name} recibe $${card.amount.toLocaleString()}`);
         break;
       case 'PAY':
         if (currentPlayer.pay(card.amount)) {
+          // Reproducir sonido de caja registradora al pagar
+          this.soundManager.playPayment();
           this.logMessage(`${currentPlayer.name} paga $${card.amount.toLocaleString()}`);
         } else {
           this.logMessage(`${currentPlayer.name} no puede pagar!`);
@@ -414,6 +430,8 @@ export class Game {
       case 'PAY_PERCENTAGE':
         const amount = Math.floor(currentPlayer.money * card.percentage / 100);
         currentPlayer.pay(amount);
+        // Reproducir sonido de caja registradora al pagar porcentaje
+        this.soundManager.playPayment();
         this.logMessage(`${currentPlayer.name} pierde $${amount.toLocaleString()} (${card.percentage}% de su dinero)`);
         break;
       case 'COLLECT_FROM_ALL':
@@ -460,6 +478,9 @@ export class Game {
     }
     
     if (success) {
+      // Reproducir sonido de caja registradora
+      this.soundManager.playPurchase();
+      
       this.logMessage(`✅ ${currentPlayer.name} compra ${space.name} por $${space.price.toLocaleString()}`);
       this.logMessage(`💰 ${currentPlayer.name} ahora tiene $${currentPlayer.money.toLocaleString()}`);
       this.canBuyProperty = false;
@@ -695,6 +716,8 @@ export class Game {
       // Verificar si pasa por LARGADA (casilla 0)
       if (currentPos === 0 && currentStep < totalSpaces) {
         const salary = player.collectSalary();
+        // Reproducir sonido de caja registradora al cobrar salario
+        this.soundManager.playPurchase();
         this.logMessage(`💰 ${player.name} pasa por LARGADA y cobra $${salary.toLocaleString()}`);
       }
       

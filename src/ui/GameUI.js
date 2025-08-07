@@ -18,6 +18,7 @@ export class GameUI {
       newGameBtn: document.getElementById('new-game-btn'),
       pauseBtn: document.getElementById('pause-btn'),
       rulesBtn: document.getElementById('rules-btn'),
+      soundToggleBtn: document.getElementById('sound-toggle-btn'),
       dice1: document.getElementById('dice1'),
       dice2: document.getElementById('dice2'),
       logMessages: document.getElementById('log-messages'),
@@ -107,6 +108,11 @@ export class GameUI {
     
     this.elements.rulesBtn.addEventListener('click', () => {
       this.showRules();
+    });
+
+    // Event listener para el botón de sonido
+    this.elements.soundToggleBtn.addEventListener('click', () => {
+      this.toggleSound();
     });
     
     // Event listeners para el modal de setup
@@ -1028,6 +1034,31 @@ export class GameUI {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
+  }
+  
+  // Alternar sonidos del juego
+  toggleSound() {
+    const soundManager = this.game.soundManager;
+    const soundBtn = this.elements.soundToggleBtn;
+    
+    if (soundManager.isEnabled()) {
+      // Deshabilitar sonidos
+      soundManager.setEnabled(false);
+      soundBtn.textContent = '🔇';
+      soundBtn.classList.remove('sound-on');
+      soundBtn.classList.add('sound-off');
+      soundBtn.title = 'Activar sonidos';
+    } else {
+      // Habilitar sonidos
+      soundManager.setEnabled(true);
+      soundBtn.textContent = '🔊';
+      soundBtn.classList.remove('sound-off');
+      soundBtn.classList.add('sound-on');
+      soundBtn.title = 'Desactivar sonidos';
+      
+      // Reproducir sonido de confirmación
+      soundManager.playCoin();
+    }
   }
   
   formatNumber(number) {
