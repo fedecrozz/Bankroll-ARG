@@ -224,13 +224,21 @@ export class Player {
   
   // Dibujar el jugador en el tablero
   draw(ctx, board) {
-    // Interpolación suave para la animación
+    // Interpolación suave mejorada para la animación
     if (this.isMoving) {
-      const speed = 0.2;
-      this.x += (this.targetX - this.x) * speed;
-      this.y += (this.targetY - this.y) * speed;
+      // Usar easing para una animación más fluida
+      const speed = 0.12; // Velocidad más lenta para suavidad
+      const distanceX = this.targetX - this.x;
+      const distanceY = this.targetY - this.y;
       
-      if (Math.abs(this.targetX - this.x) < 1 && Math.abs(this.targetY - this.y) < 1) {
+      // Easing out cubic para desaceleración natural
+      const progress = 1 - Math.pow(1 - speed, 3);
+      
+      this.x += distanceX * progress;
+      this.y += distanceY * progress;
+      
+      // Umbral más pequeño para mayor precisión
+      if (Math.abs(this.targetX - this.x) < 0.5 && Math.abs(this.targetY - this.y) < 0.5) {
         this.x = this.targetX;
         this.y = this.targetY;
         this.isMoving = false;
@@ -241,33 +249,90 @@ export class Player {
     }
     
     // Tamaño del token proporcional al tablero
-    const tokenRadius = board ? Math.max(6, board.boardSize / 80) : 8;
-    const tokenOffset = tokenRadius - 2;
+    const tokenRadius = board ? Math.max(8, board.boardSize / 70) : 10;
+    const centerX = this.x + tokenRadius;
+    const centerY = this.y + tokenRadius;
     
-    // Dibujar el token del jugador
-    ctx.fillStyle = this.color;
+    // Sombra del token
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    
+    // Fondo del token con gradiente
+    const gradient = ctx.createRadialGradient(
+      centerX, centerY, 0,
+      centerX, centerY, tokenRadius
+    );
+    gradient.addColorStop(0, this.color);
+    gradient.addColorStop(0.8, this.darkenColor(this.color, 0.2));
+    gradient.addColorStop(1, this.darkenColor(this.color, 0.4));
+    
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(this.x + tokenOffset, this.y + tokenOffset, tokenRadius, 0, 2 * Math.PI);
+    ctx.arc(centerX, centerY, tokenRadius, 0, 2 * Math.PI);
     ctx.fill();
     
-    // Borde del token
+    // Resetear sombra
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    
+    // Borde dorado del token
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = Math.max(2, tokenRadius / 5);
+    ctx.stroke();
+    
+    // Borde interior negro
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = Math.max(1, tokenRadius / 4);
+    ctx.lineWidth = 1;
     ctx.stroke();
     
     // Inicial del jugador
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${Math.max(8, tokenRadius)}px Arial`;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.font = `bold ${Math.max(10, tokenRadius * 0.8)}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(this.name.charAt(0), this.x + tokenOffset, this.y + tokenOffset);
     
-    // Indicador de cárcel
+    // Sombra del texto
+    ctx.strokeText(this.name.charAt(0), centerX, centerY);
+    ctx.fillText(this.name.charAt(0), centerX, centerY);
+    
+    // Indicador de cárcel con mejor diseño
     if (this.isInJail) {
       ctx.fillStyle = '#FF0000';
-      ctx.font = `${Math.max(6, tokenRadius - 2)}px Arial`;
-      ctx.fillText('🔒', this.x + tokenOffset, this.y - tokenRadius);
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 1;
+      ctx.font = `${Math.max(8, tokenRadius * 0.6)}px Arial`;
+      
+      const lockX = centerX;
+      const lockY = centerY - tokenRadius - 5;
+      
+      // Fondo del indicador de cárcel
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+      ctx.beginPath();
+      ctx.arc(lockX, lockY, tokenRadius * 0.4, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      // Icono de candado
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('🔒', lockX, lockY);
     }
+  }
+
+  // Función auxiliar para oscurecer colores
+  darkenColor(color, amount) {
+    const num = parseInt(color.replace("#", ""), 16);
+    const amt = Math.round(2.55 * amount * 100);
+    const R = (num >> 16) - amt;
+    const G = (num >> 8 & 0x00FF) - amt;
+    const B = (num & 0x0000FF) - amt;
+    return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+      (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+      (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
   }
   
   // Obtener información del jugador para la UI
@@ -281,6 +346,7 @@ export class Player {
       utilities: this.utilities.length,
       isInJail: this.isInJail,
       jailTurns: this.jailTurns,
+      bankrupt: this.bankrupt,
       totalWealth: this.getTotalWealth()
     };
   }

@@ -40,6 +40,11 @@ document.addEventListener('DOMContentLoaded', () => {
     import('./board/Board.js').then(module => {
       game.board = new module.Board(canvas, canvas.getContext('2d'));
       
+      // Actualizar animación de dados
+      if (game.diceAnimation) {
+        game.diceAnimation.updateCanvasSize();
+      }
+      
       // Reposicionar jugadores
       game.players.forEach(player => {
         player.updateVisualPosition(game.board);
@@ -63,12 +68,14 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
       case 'b': // B para comprar propiedad
       case 'B':
-        if (game.canBuyProperty) {
+        if (game.canBuyProperty && game.waitingForBuyDecision) {
           game.buyProperty();
         }
         break;
-      case 'Enter': // Enter para terminar turno
-        if (game.canEndTurn) {
+      case 'Enter': // Enter para terminar turno o saltar compra
+        if (game.waitingForBuyDecision) {
+          game.skipPurchase();
+        } else if (game.canEndTurn) {
           game.endTurn();
         }
         break;
@@ -85,9 +92,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Mostrar controles en consola
   console.log('🎮 Controles del juego:');
   console.log('Barra espaciadora: Tirar dados');
-  console.log('B: Comprar propiedad');
-  console.log('Enter: Terminar turno');
+  console.log('B: Comprar propiedad (cuando está disponible)');
+  console.log('Enter: Terminar turno / Saltar compra de propiedad');
   console.log('Ctrl+N: Nueva partida');
+  console.log('');
+  console.log('📋 Flujo de turno:');
+  console.log('1. Tirar dados (ESPACIO)');
+  console.log('2. Si llega a propiedad libre: decidir comprar (B) o pasar (Enter)');
+  console.log('3. Terminar turno (Enter)');
   
   // Agregar información del juego a la ventana global para debug
   if (typeof window !== 'undefined') {

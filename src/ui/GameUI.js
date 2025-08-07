@@ -1,6 +1,11 @@
 export class GameUI {
   constructor(game) {
     this.game = game;
+    this.turnTimer = null;
+    this.currentTurnTime = 60;
+    this.selectedPlayerCount = 0;
+    this.selectedWinAmount = 7500000; // Valor por defecto
+    
     this.elements = {
       currentPlayer: document.getElementById('current-player'),
       playerMoney: document.getElementById('player-money'),
@@ -16,15 +21,31 @@ export class GameUI {
       dice2: document.getElementById('dice2'),
       logMessages: document.getElementById('log-messages'),
       
+      // Elementos del centro del tablero
+      currentTurnPlayer: document.getElementById('current-turn-player'),
+      timerSeconds: document.getElementById('timer-seconds'),
+      turnStatus: document.getElementById('turn-status'),
+      centerLogMessages: document.getElementById('center-log-messages'),
+      centerDice1: document.getElementById('center-dice1'),
+      centerDice2: document.getElementById('center-dice2'),
+      
       // Modales
       gameSetupModal: document.getElementById('game-setup-modal'),
       gameOverModal: document.getElementById('game-over-modal'),
       gameOverContent: document.getElementById('game-over-content'),
       
-      // Botones del modal de setup
+      // Elementos del modal de setup
       playerCountBtns: document.querySelectorAll('.player-count-btn'),
+      winAmountBtns: document.querySelectorAll('.win-amount-btn'),
+      customWinAmountInput: document.getElementById('custom-win-amount'),
+      setCustomAmountBtn: document.getElementById('set-custom-amount-btn'),
       startGameBtn: document.getElementById('start-game-btn'),
       cancelSetupBtn: document.getElementById('cancel-setup-btn'),
+      
+      // Elementos de resumen
+      summaryPlayers: document.getElementById('summary-players'),
+      summaryWinAmount: document.getElementById('summary-win-amount'),
+      summaryDuration: document.getElementById('summary-duration'),
       
       // Botones del modal de game over
       playAgainBtn: document.getElementById('play-again-btn'),
@@ -36,6 +57,24 @@ export class GameUI {
     this.game.onLogMessage = this.addLogMessage.bind(this);
     this.game.onGameSetup = this.showGameSetup.bind(this);
     this.game.onGameOver = this.showGameOver.bind(this);
+    
+    // Validar elementos críticos
+    this.validateElements();
+  }
+  
+  validateElements() {
+    const criticalElements = [
+      'centerLogMessages',
+      'currentTurnPlayer',
+      'gameSetupModal',
+      'startGameBtn'
+    ];
+    
+    criticalElements.forEach(elementKey => {
+      if (!this.elements[elementKey]) {
+        console.warn(`Elemento crítico no encontrado: ${elementKey}`);
+      }
+    });
   }
   
   setupEventListeners() {
@@ -72,13 +111,35 @@ export class GameUI {
       });
     });
     
+    this.elements.winAmountBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.selectWinAmount(btn);
+      });
+    });
+    
+    this.elements.setCustomAmountBtn.addEventListener('click', () => {
+      this.setCustomWinAmount();
+    });
+    
+    this.elements.customWinAmountInput.addEventListener('input', () => {
+      this.validateCustomAmount();
+    });
+    
+    this.elements.customWinAmountInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        this.setCustomWinAmount();
+      }
+    });
+    
     this.elements.startGameBtn.addEventListener('click', () => {
       this.startGame();
     });
     
-    this.elements.cancelSetupBtn.addEventListener('click', () => {
-      this.hideGameSetup();
-    });
+    if (this.elements.cancelSetupBtn) {
+      this.elements.cancelSetupBtn.addEventListener('click', () => {
+        this.hideGameSetup();
+      });
+    }
     
     // Event listeners para el modal de game over
     this.elements.playAgainBtn.addEventListener('click', () => {
@@ -105,9 +166,10 @@ export class GameUI {
   }
   
   updateUI(gameState) {
-    const { currentPlayer, canRollDice, canBuyProperty, canEndTurn, players, gamePhase } = gameState;
+    const { currentPlayer, canRollDice, canBuyProperty, canEndTurn, players, gamePhase, waitingForBuyDecision } = gameState;
     
     if (gamePhase === 'SETUP') {
+      this.stopTurnTimer();
       return; // No actualizar UI durante setup
     }
     
@@ -116,6 +178,9 @@ export class GameUI {
     
     // Actualizar información de todos los jugadores
     this.updateAllPlayersInfo(players, currentPlayer);
+    
+    // Actualizar centro del tablero
+    this.updateBoardCenter(currentPlayer, canRollDice, canBuyProperty, canEndTurn, waitingForBuyDecision);
     
     // Actualizar estado de los botones
     this.elements.rollDiceBtn.disabled = !canRollDice;
@@ -135,28 +200,133 @@ export class GameUI {
     } else {
       this.elements.buyPropertyBtn.textContent = 'Comprar Propiedad';
     }
+    
+    // Reiniciar temporizador si es el turno de un jugador nuevo
+    if (gamePhase === 'PLAYING' && canRollDice) {
+      this.startTurnTimer();
+    }
+  }
+  
+  updateBoardCenter(currentPlayer, canRollDice, canBuyProperty, canEndTurn, waitingForBuyDecision) {
+    if (!currentPlayer) return;
+    
+    // Actualizar nombre del jugador actual
+    this.elements.currentTurnPlayer.textContent = `Turno de ${currentPlayer.name}`;
+    this.elements.currentTurnPlayer.style.color = this.getPlayerColor(currentPlayer.name);
+    
+    // Actualizar estado del turno
+    let statusMessage = '';
+    if (waitingForBuyDecision) {
+      statusMessage = '🏠 ¿Comprar propiedad? (B = Sí, Enter = No)';
+    } else if (canRollDice) {
+      statusMessage = '🎲 Presiona ESPACIO para tirar dados';
+    } else if (canBuyProperty) {
+      statusMessage = '🏠 Presiona B para comprar propiedad';
+    } else if (canEndTurn) {
+      statusMessage = '✅ Presiona ENTER para terminar turno';
+    } else {
+      statusMessage = '⏳ Esperando...';
+    }
+    
+    this.elements.turnStatus.textContent = statusMessage;
+  }
+  
+  startTurnTimer() {
+    // Detener temporizador anterior si existe
+    this.stopTurnTimer();
+    
+    // Reiniciar tiempo
+    this.currentTurnTime = 60;
+    this.elements.timerSeconds.textContent = this.currentTurnTime;
+    
+    // Remover clases de estado
+    const timerCircle = document.querySelector('.timer-circle');
+    timerCircle.classList.remove('warning', 'danger');
+    
+    // Iniciar nuevo temporizador
+    this.turnTimer = setInterval(() => {
+      this.currentTurnTime--;
+      this.elements.timerSeconds.textContent = this.currentTurnTime;
+      
+      // Actualizar progreso visual
+      const progress = (60 - this.currentTurnTime) / 60 * 360;
+      timerCircle.style.background = `conic-gradient(var(--primary-yellow) ${progress}deg, transparent ${progress}deg)`;
+      
+      // Estados de alerta
+      if (this.currentTurnTime <= 10) {
+        timerCircle.classList.add('danger');
+        timerCircle.classList.remove('warning');
+      } else if (this.currentTurnTime <= 20) {
+        timerCircle.classList.add('warning');
+        timerCircle.classList.remove('danger');
+      }
+      
+      // Tiempo agotado
+      if (this.currentTurnTime <= 0) {
+        this.handleTimeUp();
+      }
+    }, 1000);
+  }
+  
+  stopTurnTimer() {
+    if (this.turnTimer) {
+      clearInterval(this.turnTimer);
+      this.turnTimer = null;
+    }
+  }
+  
+  handleTimeUp() {
+    this.stopTurnTimer();
+    this.addLogMessage('⏰ ¡Tiempo agotado! Pasando automáticamente al siguiente jugador...');
+    
+    // Forzar fin de turno inmediatamente
+    setTimeout(() => {
+      // Si está esperando decisión de compra, cancelarla automáticamente
+      if (this.game.waitingForBuyDecision) {
+        this.addLogMessage('❌ Tiempo agotado - Compra cancelada automáticamente');
+        this.game.skipPurchase();
+      }
+      // Si puede terminar turno, hacerlo
+      else if (this.game.canEndTurn) {
+        this.game.endTurn();
+      }
+      // Si puede tirar dados pero no lo hizo, pasar turno
+      else if (this.game.canRollDice) {
+        this.addLogMessage('❌ No tiró los dados - Turno perdido');
+        this.game.canRollDice = false;
+        this.game.canEndTurn = true;
+        this.game.endTurn();
+      }
+    }, 500); // Reducido a 500ms para respuesta más rápida
   }
   
   updateCurrentPlayerInfo(player) {
     if (!player) return;
     
     // Información básica del jugador
-    this.elements.currentPlayer.innerHTML = `
-      <div class="player-name" style="color: ${player.color}">
-        <strong>${player.name}</strong>
-        ${player.isInJail ? ' 🔒' : ''}
-      </div>
-    `;
+    if (this.elements.currentPlayer) {
+      this.elements.currentPlayer.innerHTML = `
+        <div class="player-name" style="color: ${player.color}">
+          <strong>${player.name}</strong>
+          ${player.isInJail ? ' 🔒' : ''}
+        </div>
+      `;
+    }
     
-    // Dinero del jugador
-    this.elements.playerMoney.innerHTML = `
-      <div class="money-display">
-        <span class="money">$${player.money.toLocaleString()}</span>
-      </div>
-      <div class="wealth-display">
-        Patrimonio total: <span class="money">$${player.totalWealth.toLocaleString()}</span>
-      </div>
-    `;
+    // Dinero del jugador - con valores seguros
+    if (this.elements.playerMoney) {
+      const money = player.money || 0;
+      const totalWealth = player.totalWealth || money;
+      
+      this.elements.playerMoney.innerHTML = `
+        <div class="money-display">
+          <span class="money">$${money.toLocaleString()}</span>
+        </div>
+        <div class="wealth-display">
+          Patrimonio total: <span class="money">$${totalWealth.toLocaleString()}</span>
+        </div>
+      `;
+    }
     
     // Propiedades del jugador
     const propertiesCount = player.properties + player.railroads + player.utilities;
@@ -180,25 +350,30 @@ export class GameUI {
   }
   
   updateDiceDisplay(dice1, dice2) {
-    this.elements.dice1.textContent = dice1 || '?';
-    this.elements.dice2.textContent = dice2 || '?';
+    // Actualizar dados del centro del tablero
+    if (this.elements.centerDice1 && this.elements.centerDice2) {
+      this.elements.centerDice1.textContent = dice1 || '?';
+      this.elements.centerDice2.textContent = dice2 || '?';
+    }
     
     // Animación de dados
     if (dice1 && dice2) {
-      this.animateDice();
+      this.animateCenterDice();
     }
   }
   
-  animateDice() {
-    const diceElements = [this.elements.dice1, this.elements.dice2];
+  animateCenterDice() {
+    const diceElements = [this.elements.centerDice1, this.elements.centerDice2];
     
     diceElements.forEach(dice => {
-      dice.style.transform = 'rotate(360deg) scale(1.2)';
-      dice.style.transition = 'transform 0.5s ease';
-      
-      setTimeout(() => {
-        dice.style.transform = 'rotate(0deg) scale(1)';
-      }, 500);
+      if (dice) {
+        dice.style.transform = 'rotate(360deg) scale(1.2)';
+        dice.style.transition = 'transform 0.5s ease';
+        
+        setTimeout(() => {
+          dice.style.transform = 'rotate(0deg) scale(1)';
+        }, 500);
+      }
     });
   }
   
@@ -207,37 +382,121 @@ export class GameUI {
     
     this.elements.allPlayersInfo.innerHTML = '';
     
-    // Ordenar jugadores por dinero (descendente)
-    const sortedPlayers = [...players].sort((a, b) => b.money - a.money);
+    // Separar jugadores activos y en bancarrota
+    const activePlayers = players.filter(p => !p.bankrupt);
+    const bankruptPlayers = players.filter(p => p.bankrupt);
     
-    sortedPlayers.forEach((player, index) => {
-      const playerDiv = document.createElement('div');
-      playerDiv.className = 'player-summary';
-      
-      if (currentPlayer && player.name === currentPlayer.name) {
-        playerDiv.classList.add('current');
-      }
-      
-      // Determinar el estado del jugador
-      let status = '';
-      if (player.money >= 7500000) {
-        status = '🏆 ¡GANADOR!';
-      } else if (player.money <= -1000000) {
-        status = '💸 En Bancarrota';
-      } else if (player.isInJail) {
-        status = '🔒 En la Cárcel';
-      }
-      
-      playerDiv.innerHTML = `
-        <div class="player-name" style="color: ${this.getPlayerColor(player.name)}">${player.name} ${status}</div>
-        <div class="player-stats">
-          <div>💰 $${player.money.toLocaleString()}</div>
-          <div>🏢 ${player.properties + player.railroads + player.utilities} propiedades</div>
+    // Ordenar jugadores activos por dinero (descendente)
+    const sortedActivePlayers = [...activePlayers].sort((a, b) => b.money - a.money);
+    
+    // Mostrar estadísticas generales
+    if (players.length > 0) {
+      const statsHeader = document.createElement('div');
+      statsHeader.className = 'stats-header';
+      statsHeader.innerHTML = `
+        <div class="game-stats">
+          <div class="stat-item">
+            <span class="stat-label">👥 Jugadores Activos:</span>
+            <span class="stat-value">${activePlayers.length}/${players.length}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">💸 En Bancarrota:</span>
+            <span class="stat-value danger">${bankruptPlayers.length}</span>
+          </div>
         </div>
       `;
+      this.elements.allPlayersInfo.appendChild(statsHeader);
+    }
+    
+    // Mostrar jugadores activos
+    if (sortedActivePlayers.length > 0) {
+      const activeHeader = document.createElement('h5');
+      activeHeader.textContent = '🎮 Jugadores Activos';
+      activeHeader.className = 'section-header';
+      this.elements.allPlayersInfo.appendChild(activeHeader);
       
-      this.elements.allPlayersInfo.appendChild(playerDiv);
-    });
+      sortedActivePlayers.forEach((player, index) => {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'player-summary active-player';
+        
+        if (currentPlayer && player.name === currentPlayer.name) {
+          playerDiv.classList.add('current');
+        }
+        
+        // Determinar el estado del jugador
+        let status = '';
+        let statusClass = '';
+        if (player.money >= 7500000) {
+          status = '🏆 ¡GANADOR!';
+          statusClass = 'winner';
+        } else if (player.isInJail) {
+          status = `🔒 Cárcel (${player.jailTurns}/3)`;
+          statusClass = 'jailed';
+        }
+        
+        // Calcular progreso hacia la victoria
+        const progressToWin = Math.min((player.money / 7500000) * 100, 100);
+        const progressToBankrupt = Math.max(0, ((player.money + 1000000) / 2500000) * 100);
+        
+        playerDiv.innerHTML = `
+          <div class="player-header">
+            <div class="player-name" style="color: ${this.getPlayerColor(player.name)}">
+              <strong>${index + 1}. ${player.name}</strong> ${status}
+            </div>
+            <div class="player-position">Posición: ${player.position}</div>
+          </div>
+          <div class="player-stats">
+            <div class="money-info">
+              <div class="main-money">💰 <strong>$${player.money.toLocaleString()}</strong></div>
+              <div class="wealth-info">
+                <small>Patrimonio: $${(player.totalWealth || player.money).toLocaleString()}</small>
+              </div>
+            </div>
+            <div class="properties-info">
+              <div class="property-counts">
+                � ${player.properties || 0} | 🚂 ${player.railroads || 0} | ⚡ ${player.utilities || 0}
+                <span class="total-props">(Total: ${(player.properties || 0) + (player.railroads || 0) + (player.utilities || 0)})</span>
+              </div>
+            </div>
+            <div class="progress-bars">
+              <div class="progress-item">
+                <label>Progreso a Victoria:</label>
+                <div class="progress-bar">
+                  <div class="progress-fill win" style="width: ${progressToWin}%"></div>
+                </div>
+                <small>${progressToWin.toFixed(1)}%</small>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        this.elements.allPlayersInfo.appendChild(playerDiv);
+      });
+    }
+    
+    // Mostrar jugadores en bancarrota
+    if (bankruptPlayers.length > 0) {
+      const bankruptHeader = document.createElement('h5');
+      bankruptHeader.textContent = '💸 Jugadores Eliminados';
+      bankruptHeader.className = 'section-header danger';
+      this.elements.allPlayersInfo.appendChild(bankruptHeader);
+      
+      bankruptPlayers.forEach(player => {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'player-summary bankrupt-player';
+        
+        playerDiv.innerHTML = `
+          <div class="player-name" style="color: ${this.getPlayerColor(player.name)}">
+            ${player.name} 💀 ELIMINADO
+          </div>
+          <div class="player-stats">
+            <div class="final-money">Dinero final: $${player.money.toLocaleString()}</div>
+          </div>
+        `;
+        
+        this.elements.allPlayersInfo.appendChild(playerDiv);
+      });
+    }
   }
   
   getPlayerColor(playerName) {
@@ -253,6 +512,35 @@ export class GameUI {
   
   showGameSetup() {
     this.elements.gameSetupModal.classList.add('show');
+    
+    // Resetear selecciones
+    this.selectedPlayerCount = 0;
+    this.selectedWinAmount = 7500000; // Valor por defecto
+    
+    // Limpiar selecciones anteriores
+    this.elements.playerCountBtns.forEach(btn => {
+      btn.classList.remove('selected');
+    });
+    
+    // Seleccionar monto por defecto (Clásico)
+    this.elements.winAmountBtns.forEach(btn => {
+      btn.classList.remove('active');
+      if (parseInt(btn.dataset.amount) === 7500000) {
+        btn.classList.add('active');
+      }
+    });
+    
+    // Limpiar input personalizado
+    if (this.elements.customWinAmountInput) {
+      this.elements.customWinAmountInput.value = '';
+      this.elements.customWinAmountInput.style.borderColor = '';
+    }
+    
+    // Actualizar resumen inicial
+    this.updateGameSummary();
+    
+    // Verificar estado del botón de inicio
+    this.checkCanStartGame();
   }
   
   hideGameSetup() {
@@ -265,24 +553,141 @@ export class GameUI {
       btn.classList.remove('selected');
     });
     
-    // Seleccionar el botón clickeado
+    // Seleccionar nuevo botón
     selectedBtn.classList.add('selected');
+    this.selectedPlayerCount = parseInt(selectedBtn.dataset.count);
     
-    // Habilitar botón de inicio
-    this.elements.startGameBtn.disabled = false;
+    // Actualizar resumen
+    this.updateGameSummary();
     
-    // Guardar la selección
-    const count = parseInt(selectedBtn.dataset.count);
-    this.game.setPlayerCount(count);
+    // Verificar si se puede iniciar el juego
+    this.checkCanStartGame();
+  }
+  
+  selectWinAmount(selectedBtn) {
+    // Remover selección anterior
+    this.elements.winAmountBtns.forEach(btn => {
+      btn.classList.remove('active');
+    });
+    
+    // Seleccionar nuevo botón
+    selectedBtn.classList.add('active');
+    this.selectedWinAmount = parseInt(selectedBtn.dataset.amount);
+    
+    // Limpiar input personalizado
+    if (this.elements.customWinAmountInput) {
+      this.elements.customWinAmountInput.value = '';
+    }
+    
+    // Actualizar resumen
+    this.updateGameSummary();
+  }
+  
+  setCustomWinAmount() {
+    const customAmount = parseInt(this.elements.customWinAmountInput.value);
+    
+    if (customAmount && customAmount >= 1000000 && customAmount <= 50000000) {
+      // Remover selección de botones predeterminados
+      this.elements.winAmountBtns.forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      // Establecer monto personalizado
+      this.selectedWinAmount = customAmount;
+      
+      // Actualizar resumen
+      this.updateGameSummary();
+      
+      // Feedback visual
+      this.elements.setCustomAmountBtn.textContent = '✓ Aplicado';
+      this.elements.setCustomAmountBtn.style.background = '#28a745';
+      
+      setTimeout(() => {
+        this.elements.setCustomAmountBtn.textContent = 'Aplicar';
+        this.elements.setCustomAmountBtn.style.background = '';
+      }, 1500);
+    } else {
+      // Error feedback
+      this.elements.customWinAmountInput.style.borderColor = '#dc3545';
+      this.elements.setCustomAmountBtn.textContent = '❌ Error';
+      this.elements.setCustomAmountBtn.style.background = '#dc3545';
+      
+      setTimeout(() => {
+        this.elements.customWinAmountInput.style.borderColor = '';
+        this.elements.setCustomAmountBtn.textContent = 'Aplicar';
+        this.elements.setCustomAmountBtn.style.background = '';
+      }, 1500);
+    }
+  }
+  
+  validateCustomAmount() {
+    const value = parseInt(this.elements.customWinAmountInput.value);
+    const isValid = value >= 1000000 && value <= 50000000;
+    
+    if (this.elements.customWinAmountInput.value === '') {
+      this.elements.customWinAmountInput.style.borderColor = '';
+      this.elements.setCustomAmountBtn.disabled = true;
+    } else if (isValid) {
+      this.elements.customWinAmountInput.style.borderColor = '#28a745';
+      this.elements.setCustomAmountBtn.disabled = false;
+    } else {
+      this.elements.customWinAmountInput.style.borderColor = '#dc3545';
+      this.elements.setCustomAmountBtn.disabled = true;
+    }
+  }
+  
+  updateGameSummary() {
+    // Actualizar jugadores
+    if (this.selectedPlayerCount > 0) {
+      this.elements.summaryPlayers.textContent = `${this.selectedPlayerCount} jugadores`;
+      this.elements.summaryPlayers.style.color = '#28a745';
+    } else {
+      this.elements.summaryPlayers.textContent = 'No seleccionado';
+      this.elements.summaryPlayers.style.color = '#dc3545';
+    }
+    
+    // Actualizar monto de victoria
+    this.elements.summaryWinAmount.textContent = `$${this.selectedWinAmount.toLocaleString()}`;
+    
+    // Calcular duración estimada basada en jugadores y monto
+    let estimatedDuration = '';
+    if (this.selectedPlayerCount > 0) {
+      const baseMinutes = 10 + (this.selectedPlayerCount * 5);
+      const amountMultiplier = this.selectedWinAmount / 7500000;
+      const totalMinutes = Math.round(baseMinutes * amountMultiplier);
+      
+      if (totalMinutes < 20) {
+        estimatedDuration = `${totalMinutes}-${totalMinutes + 10} minutos (Rápido)`;
+      } else if (totalMinutes < 40) {
+        estimatedDuration = `${totalMinutes}-${totalMinutes + 15} minutos (Moderado)`;
+      } else {
+        estimatedDuration = `${totalMinutes}-${totalMinutes + 20} minutos (Épico)`;
+      }
+    } else {
+      estimatedDuration = 'Selecciona jugadores';
+    }
+    
+    this.elements.summaryDuration.textContent = estimatedDuration;
+  }
+  
+  checkCanStartGame() {
+    const canStart = this.selectedPlayerCount >= 2 && this.selectedPlayerCount <= 5 && this.selectedWinAmount >= 1000000;
+    this.elements.startGameBtn.disabled = !canStart;
   }
   
   startGame() {
+    // Configurar el juego con las opciones seleccionadas
+    this.game.setPlayerCount(this.selectedPlayerCount);
+    this.game.setWinLimit(this.selectedWinAmount);
+    
     this.hideGameSetup();
     this.clearLog();
     this.game.initializeGame();
   }
   
   showGameOver(player, type) {
+    this.stopTurnTimer(); // Parar temporizador cuando termine el juego
+    
     let content = '';
     
     if (type === 'WIN') {
@@ -387,33 +792,70 @@ export class GameUI {
   }
   
   addLogMessage(message) {
-    const messageElement = document.createElement('div');
-    messageElement.className = 'log-entry';
-    
-    // Clasificar mensajes por tipo
-    if (message.includes('GANA') || message.includes('Felicitaciones')) {
-      messageElement.classList.add('success');
-    } else if (message.includes('bancarrota') || message.includes('no puede pagar')) {
-      messageElement.classList.add('danger');
-    } else if (message.includes('compra') || message.includes('cobra') || message.includes('dobles')) {
-      messageElement.classList.add('important');
+    // Agregar al log del centro del tablero
+    if (this.elements.centerLogMessages) {
+      const centerMessageElement = document.createElement('div');
+      centerMessageElement.className = 'center-log-entry';
+      
+      // Solo el mensaje, sin timestamp para ahorrar espacio
+      centerMessageElement.textContent = message;
+      
+      // Clasificar mensajes por tipo
+      if (message.includes('GANA') || message.includes('Felicitaciones')) {
+        centerMessageElement.classList.add('success');
+      } else if (message.includes('bancarrota') || message.includes('no puede pagar')) {
+        centerMessageElement.classList.add('danger');
+      } else if (message.includes('compra') || message.includes('cobra') || message.includes('dobles')) {
+        centerMessageElement.classList.add('important');
+      }
+      
+      this.elements.centerLogMessages.appendChild(centerMessageElement);
+      
+      // Mantener solo los últimos 6 mensajes en el centro
+      while (this.elements.centerLogMessages.children.length > 6) {
+        this.elements.centerLogMessages.removeChild(this.elements.centerLogMessages.firstChild);
+      }
+      
+      // Scroll al final
+      this.elements.centerLogMessages.scrollTop = this.elements.centerLogMessages.scrollHeight;
     }
     
-    messageElement.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
-    
-    this.elements.logMessages.appendChild(messageElement);
-    
-    // Scroll al final
-    this.elements.logMessages.scrollTop = this.elements.logMessages.scrollHeight;
-    
-    // Limitar el número de mensajes (mantener solo los últimos 50)
-    while (this.elements.logMessages.children.length > 50) {
-      this.elements.logMessages.removeChild(this.elements.logMessages.firstChild);
+    // Mantener el log original en el panel lateral para referencia completa
+    if (this.elements.logMessages) {
+      const messageElement = document.createElement('div');
+      messageElement.className = 'log-entry';
+      
+      // Clasificar mensajes por tipo
+      if (message.includes('GANA') || message.includes('Felicitaciones')) {
+        messageElement.classList.add('success');
+      } else if (message.includes('bancarrota') || message.includes('no puede pagar')) {
+        messageElement.classList.add('danger');
+      } else if (message.includes('compra') || message.includes('cobra') || message.includes('dobles')) {
+        messageElement.classList.add('important');
+      }
+      
+      messageElement.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+      
+      this.elements.logMessages.appendChild(messageElement);
+      
+      // Scroll al final
+      this.elements.logMessages.scrollTop = this.elements.logMessages.scrollHeight;
+      
+      // Limitar el número de mensajes (mantener solo los últimos 50)
+      while (this.elements.logMessages.children.length > 50) {
+        this.elements.logMessages.removeChild(this.elements.logMessages.firstChild);
+      }
     }
   }
   
   clearLog() {
-    this.elements.logMessages.innerHTML = '';
+    if (this.elements.centerLogMessages) {
+      this.elements.centerLogMessages.innerHTML = '';
+    }
+    // También limpiar el log principal si existe
+    if (this.elements.logMessages) {
+      this.elements.logMessages.innerHTML = '';
+    }
   }
   
   showPropertyDetails(space) {

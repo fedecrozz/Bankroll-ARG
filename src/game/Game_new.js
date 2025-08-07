@@ -2,14 +2,12 @@ import { Board } from '../board/Board.js';
 import { Player } from '../player/Player.js';
 import { communityChestCards, chanceCards, shuffleCards } from '../board/cards.js';
 import { boardSpaces } from '../board/spaces.js';
-import { DiceAnimation } from '../ui/DiceAnimation.js';
 
 export class Game {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.board = new Board(canvas, this.ctx);
-    this.diceAnimation = new DiceAnimation(canvas);
     
     // Estado del juego
     this.players = [];
@@ -77,14 +75,6 @@ export class Game {
     this.currentPlayerIndex = 0;
     this.winner = null;
     
-    // Restablecer estados del juego
-    this.gamePhase = 'PLAYING';
-    this.diceRoll = [0, 0];
-    this.canRollDice = true;
-    this.canBuyProperty = false;
-    this.canEndTurn = false;
-    this.waitingForBuyDecision = false;
-    
     // Colores predefinidos para los jugadores
     const playerColors = ['#FF0000', '#0000FF', '#00FF00', '#FFFF00', '#FF00FF'];
     const playerNames = ['Rojo', 'Azul', 'Verde', 'Amarillo', 'Magenta'];
@@ -99,6 +89,7 @@ export class Game {
       player.updateVisualPosition(this.board);
     });
     
+    this.gamePhase = 'PLAYING';
     this.logMessage(`🎮 ¡Comienza la partida con ${this.selectedPlayerCount} jugadores!`);
     this.logMessage(`🎯 Meta de Victoria: $${this.winLimit.toLocaleString()}`);
     this.logMessage(`💸 Límite de Bancarrota: $${this.bankruptLimit.toLocaleString()}`);
@@ -125,16 +116,7 @@ export class Game {
   }
   
   rollDice() {
-    console.log(`rollDice llamado - canRollDice: ${this.canRollDice}, gamePhase: ${this.gamePhase}`);
-    
-    if (!this.canRollDice || this.gamePhase !== 'PLAYING') {
-      console.log('No se puede tirar dados ahora');
-      return [0, 0];
-    }
-    
-    // Desactivar botones durante la animación
-    this.canRollDice = false;
-    this.updateGameState();
+    if (!this.canRollDice || this.gamePhase !== 'PLAYING') return [0, 0];
     
     const dice1 = Math.floor(Math.random() * 6) + 1;
     const dice2 = Math.floor(Math.random() * 6) + 1;
@@ -143,27 +125,23 @@ export class Game {
     const currentPlayer = this.getCurrentPlayer();
     const total = dice1 + dice2;
     
-    console.log(`Valores de dados generados: ${dice1}, ${dice2}`);
     this.logMessage(`🎲 ${currentPlayer.name} tiró los dados: ${dice1} + ${dice2} = ${total}`);
     
-    // Mostrar animación simple por 1 segundo y luego continuar
-    this.diceAnimation.startAnimation(dice1, dice2, () => {
-      console.log('Callback de animación ejecutado');
-      // Este callback se ejecuta cuando termina la animación
-      
-      // Verificar si está en la cárcel
-      if (currentPlayer.isInJail) {
-        if (currentPlayer.tryToGetOutOfJail(dice1, dice2)) {
-          this.logMessage(`🔓 ${currentPlayer.name} sale de la cárcel!`);
-          this.movePlayer(total);
-        } else {
-          this.logMessage(`🔒 ${currentPlayer.name} permanece en la cárcel (turno ${currentPlayer.jailTurns}/3)`);
-          this.endTurn();
-        }
-      } else {
+    // Verificar si está en la cárcel
+    if (currentPlayer.isInJail) {
+      if (currentPlayer.tryToGetOutOfJail(dice1, dice2)) {
+        this.logMessage(`🔓 ${currentPlayer.name} sale de la cárcel!`);
         this.movePlayer(total);
+      } else {
+        this.logMessage(`🔒 ${currentPlayer.name} permanece en la cárcel (turno ${currentPlayer.jailTurns}/3)`);
+        this.endTurn();
       }
-    });
+    } else {
+      this.movePlayer(total);
+    }
+    
+    this.canRollDice = false;
+    this.updateGameState();
     
     return this.diceRoll;
   }
@@ -171,29 +149,21 @@ export class Game {
   movePlayer(spaces) {
     const currentPlayer = this.getCurrentPlayer();
     const oldPosition = currentPlayer.position;
-    const finalPosition = (oldPosition + spaces) % 28;
     
+    currentPlayer.move(spaces, this.board);
     currentPlayer.isMoving = true;
     
-    this.logMessage(`🚶 ${currentPlayer.name} se mueve ${spaces} espacios desde ${this.board.getSpace(oldPosition).name}`);
+    this.logMessage(`🚶 ${currentPlayer.name} se mueve de ${this.board.getSpace(oldPosition).name} a ${this.board.getSpace(currentPlayer.position).name}`);
     
-    // Verificar si pasará por LARGADA
-    const willPassGo = oldPosition > finalPosition || (oldPosition + spaces >= 28);
-    if (willPassGo) {
-      this.logMessage(`💰 ${currentPlayer.name} pasará por LARGADA y cobrará $200.000`);
+    // Verificar si pasó por LARGADA y cobrar
+    if (oldPosition > currentPlayer.position || (oldPosition + spaces >= 28)) {
+      this.logMessage(`💰 ${currentPlayer.name} pasa por LARGADA y cobra $200.000`);
     }
     
-    // Animar movimiento casillero por casillero
-    this.animatePlayerMovement(currentPlayer, oldPosition, spaces, () => {
-      // Callback cuando termina la animación
-      currentPlayer.isMoving = false;
-      this.logMessage(`📍 ${currentPlayer.name} llega a ${this.board.getSpace(currentPlayer.position).name}`);
-      
-      // Procesar la llegada a la nueva casilla
-      setTimeout(() => {
-        this.processSpaceLanding();
-      }, 300);
-    });
+    // Procesar la llegada a la nueva casilla después de un breve delay
+    setTimeout(() => {
+      this.processSpaceLanding();
+    }, 500);
   }
   
   processSpaceLanding() {
@@ -586,26 +556,24 @@ export class Game {
   }
   
   updateGameState() {
-    const gameState = {
-      currentPlayer: this.getCurrentPlayer(),
-      canRollDice: this.canRollDice && this.gamePhase === 'PLAYING',
-      canBuyProperty: this.canBuyProperty && this.gamePhase === 'PLAYING',
-      canEndTurn: this.canEndTurn && this.gamePhase === 'PLAYING',
-      waitingForBuyDecision: this.waitingForBuyDecision,
-      diceRoll: this.diceRoll,
-      players: this.players.map(p => p.getInfo()),
-      activePlayers: this.players.filter(p => !p.bankrupt).length,
-      gamePhase: this.gamePhase,
-      winner: this.winner,
-      selectedPlayerCount: this.selectedPlayerCount,
-      minPlayers: this.minPlayers,
-      maxPlayers: this.maxPlayers,
-      winLimit: this.winLimit,
-      bankruptLimit: this.bankruptLimit
-    };
-    
     if (this.onGameStateChange) {
-      this.onGameStateChange(gameState);
+      this.onGameStateChange({
+        currentPlayer: this.getCurrentPlayer(),
+        canRollDice: this.canRollDice && this.gamePhase === 'PLAYING',
+        canBuyProperty: this.canBuyProperty && this.gamePhase === 'PLAYING',
+        canEndTurn: this.canEndTurn && this.gamePhase === 'PLAYING',
+        waitingForBuyDecision: this.waitingForBuyDecision,
+        diceRoll: this.diceRoll,
+        players: this.players.map(p => p.getInfo()),
+        activePlayers: this.players.filter(p => !p.bankrupt).length,
+        gamePhase: this.gamePhase,
+        winner: this.winner,
+        selectedPlayerCount: this.selectedPlayerCount,
+        minPlayers: this.minPlayers,
+        maxPlayers: this.maxPlayers,
+        winLimit: this.winLimit,
+        bankruptLimit: this.bankruptLimit
+      });
     }
   }
   
@@ -620,11 +588,6 @@ export class Game {
     this.players.forEach(player => {
       player.draw(this.ctx, this.board);
     });
-    
-    // Dibujar animación de dados si está activa
-    if (this.diceAnimation && this.diceAnimation.isAnimating) {
-      this.diceAnimation.drawDice();
-    }
   }
   
   // Función para iniciar un nuevo juego
@@ -655,42 +618,5 @@ export class Game {
     // Mostrar configuración del juego
     this.logMessage('🔄 Iniciando nueva partida...');
     this.showGameSetup();
-  }
-
-  // Animar movimiento del jugador casillero por casillero
-  animatePlayerMovement(player, startPosition, totalSpaces, onComplete) {
-    let currentStep = 0;
-    let currentPos = startPosition;
-    
-    const moveOneSpace = () => {
-      if (currentStep >= totalSpaces) {
-        // Animación completa
-        player.isMoving = false;
-        if (onComplete) onComplete();
-        return;
-      }
-      
-      // Mover una casilla
-      currentStep++;
-      currentPos = (currentPos + 1) % 28;
-      
-      // Actualizar posición del jugador
-      player.position = currentPos;
-      player.updateVisualPosition(this.board);
-      
-      // Verificar si pasa por LARGADA (casilla 0)
-      if (currentPos === 0 && currentStep < totalSpaces) {
-        const salary = player.collectSalary();
-        this.logMessage(`💰 ${player.name} pasa por LARGADA y cobra $${salary.toLocaleString()}`);
-      }
-      
-      // El tablero se redibuja automáticamente en el gameLoop
-      
-      // Programar siguiente movimiento con animación más suave
-      setTimeout(moveOneSpace, 600); // 600ms entre cada casilla para más suavidad
-    };
-    
-    // Comenzar la animación
-    moveOneSpace();
   }
 }

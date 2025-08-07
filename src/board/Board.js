@@ -117,24 +117,86 @@ export class Board {
   }
   
   drawBoard() {
-    // Fondo del tablero
-    this.ctx.fillStyle = '#f0f8ff';
+    // Fondo del tablero con gradiente
+    const gradient = this.ctx.createRadialGradient(
+      this.canvas.width/2, this.canvas.height/2, 0,
+      this.canvas.width/2, this.canvas.height/2, this.boardSize/2
+    );
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(1, '#16213e');
+    this.ctx.fillStyle = gradient;
     this.ctx.fillRect(this.offsetX, this.offsetY, this.boardSize, this.boardSize);
     
-    // Borde del tablero
-    this.ctx.strokeStyle = '#003D82';
-    this.ctx.lineWidth = 3;
+    // Sombra exterior del tablero
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    this.ctx.shadowBlur = 20;
+    this.ctx.shadowOffsetX = 5;
+    this.ctx.shadowOffsetY = 5;
+    
+    // Borde del tablero con gradiente dorado
+    const borderGradient = this.ctx.createLinearGradient(
+      this.offsetX, this.offsetY, 
+      this.offsetX + this.boardSize, this.offsetY + this.boardSize
+    );
+    borderGradient.addColorStop(0, '#FFD700');
+    borderGradient.addColorStop(0.5, '#FFA500');
+    borderGradient.addColorStop(1, '#FF6B35');
+    
+    this.ctx.strokeStyle = borderGradient;
+    this.ctx.lineWidth = 6;
     this.ctx.strokeRect(this.offsetX, this.offsetY, this.boardSize, this.boardSize);
     
-    // Centro del tablero
+    // Resetear sombra
+    this.ctx.shadowColor = 'transparent';
+    this.ctx.shadowBlur = 0;
+    this.ctx.shadowOffsetX = 0;
+    this.ctx.shadowOffsetY = 0;
+    
+    // Centro del tablero con diseño atractivo
+    this.drawBoardCenter();
+  }
+
+  drawBoardCenter() {
     const centerSize = this.boardSize - (this.spaceHeight * 2);
-    this.ctx.fillStyle = '#87CEEB';
-    this.ctx.fillRect(
-      this.offsetX + this.spaceHeight,
-      this.offsetY + this.spaceHeight,
-      centerSize,
-      centerSize
+    const centerX = this.offsetX + this.spaceHeight;
+    const centerY = this.offsetY + this.spaceHeight;
+    
+    // Fondo del centro con gradiente
+    const centerGradient = this.ctx.createRadialGradient(
+      centerX + centerSize/2, centerY + centerSize/2, 0,
+      centerX + centerSize/2, centerY + centerSize/2, centerSize/2
     );
+    centerGradient.addColorStop(0, '#0f3460');
+    centerGradient.addColorStop(0.7, '#16537e');
+    centerGradient.addColorStop(1, '#1a1a2e');
+    
+    this.ctx.fillStyle = centerGradient;
+    this.ctx.fillRect(centerX, centerY, centerSize, centerSize);
+    
+    // Borde interior dorado
+    this.ctx.strokeStyle = '#FFD700';
+    this.ctx.lineWidth = 3;
+    this.ctx.strokeRect(centerX, centerY, centerSize, centerSize);
+    
+    // Logo o título en el centro
+    this.ctx.fillStyle = '#FFD700';
+    this.ctx.font = `bold ${Math.max(20, this.boardSize/25)}px Arial`;
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    
+    // Efecto de brillo en el texto
+    this.ctx.shadowColor = '#FFD700';
+    this.ctx.shadowBlur = 10;
+    
+    this.ctx.fillText('BANKROLL', centerX + centerSize/2, centerY + centerSize/2 - 10);
+    
+    this.ctx.font = `${Math.max(14, this.boardSize/35)}px Arial`;
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.fillText('ARGENTINA', centerX + centerSize/2, centerY + centerSize/2 + 15);
+    
+    // Resetear efectos
+    this.ctx.shadowColor = 'transparent';
+    this.ctx.shadowBlur = 0;
   }
   
   drawSpaces() {
@@ -147,45 +209,172 @@ export class Board {
     const pos = this.spacePositions[index];
     if (!pos) return;
     
-    // Color de fondo según el tipo de espacio
+    // Colores modernos según el tipo de espacio
     let bgColor = '#ffffff';
+    let accentColor = '#cccccc';
+    
     if (space.type === 'PROPERTY' && space.group) {
-      bgColor = this.groups[space.group].color;
-    } else if (space.type === 'START') {
-      bgColor = '#00FF00';
-    } else if (space.type === 'JAIL') {
-      bgColor = '#FFA500';
-    } else if (space.type === 'FREE_PARKING') {
-      bgColor = '#87CEEB';
-    } else if (space.type === 'GO_TO_JAIL') {
-      bgColor = '#FF0000';
-    } else if (space.type === 'TAX') {
-      bgColor = '#FFD700';
-    } else if (space.type === 'RAILROAD') {
-      bgColor = '#000000';
-    } else if (space.type === 'UTILITY') {
-      bgColor = '#FFFF00';
+      const groupColors = {
+        'brown': ['#8B4513', '#D2691E'],
+        'light_blue': ['#87CEEB', '#4682B4'], 
+        'pink': ['#FF69B4', '#FF1493'],
+        'orange': ['#FF8C00', '#FF4500'],
+        'red': ['#DC143C', '#B22222'],
+        'yellow': ['#FFD700', '#FFA500'],
+        'green': ['#32CD32', '#228B22'],
+        'blue': ['#4169E1', '#1E90FF']
+      };
+      
+      const colors = groupColors[space.group] || ['#ffffff', '#cccccc'];
+      bgColor = colors[0];
+      accentColor = colors[1];
+    } else {
+      // Colores para casillas especiales
+      switch(space.type) {
+        case 'START':
+          bgColor = '#32CD32';
+          accentColor = '#228B22';
+          break;
+        case 'JAIL':
+          bgColor = '#FF6347';
+          accentColor = '#DC143C';
+          break;
+        case 'FREE_PARKING':
+          bgColor = '#9370DB';
+          accentColor = '#8B008B';
+          break;
+        case 'GO_TO_JAIL':
+          bgColor = '#FF0000';
+          accentColor = '#B22222';
+          break;
+        case 'TAX':
+          bgColor = '#FFD700';
+          accentColor = '#FFA500';
+          break;
+        case 'RAILROAD':
+          bgColor = '#2F2F2F';
+          accentColor = '#000000';
+          break;
+        case 'UTILITY':
+          bgColor = '#00CED1';
+          accentColor = '#008B8B';
+          break;
+        case 'COMMUNITY_CHEST':
+          bgColor = '#87CEEB';
+          accentColor = '#4682B4';
+          break;
+        case 'CHANCE':
+          bgColor = '#FF8C00';
+          accentColor = '#FF6347';
+          break;
+      }
     }
     
-    // Dibujar fondo del espacio
-    this.ctx.fillStyle = bgColor;
-    this.ctx.fillRect(pos.x, pos.y, pos.width, pos.height);
+    // Dibujar sombra de la casilla
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    this.ctx.shadowBlur = 5;
+    this.ctx.shadowOffsetX = 2;
+    this.ctx.shadowOffsetY = 2;
     
-    // Borde del espacio
-    this.ctx.strokeStyle = '#000000';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(pos.x, pos.y, pos.width, pos.height);
+    // Fondo de la casilla con gradiente
+    const gradient = this.ctx.createLinearGradient(
+      pos.x, pos.y, pos.x + pos.width, pos.y + pos.height
+    );
+    gradient.addColorStop(0, bgColor);
+    gradient.addColorStop(1, accentColor);
+    
+    this.ctx.fillStyle = gradient;
+    
+    // Casillas con bordes redondeados
+    this.drawRoundedRect(pos.x, pos.y, pos.width, pos.height, 5);
+    
+    // Resetear sombra
+    this.ctx.shadowColor = 'transparent';
+    this.ctx.shadowBlur = 0;
+    this.ctx.shadowOffsetX = 0;
+    this.ctx.shadowOffsetY = 0;
+    
+    // Borde de la casilla con efecto brillante
+    this.ctx.strokeStyle = '#FFD700';
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+    
+    // Barra de color del grupo para propiedades
+    if (space.type === 'PROPERTY' && space.group && !pos.isCorner) {
+      this.ctx.fillStyle = accentColor;
+      if (pos.width > pos.height) { // Casilla horizontal
+        this.ctx.fillRect(pos.x + 2, pos.y + 2, pos.width - 4, 8);
+      } else { // Casilla vertical
+        this.ctx.fillRect(pos.x + 2, pos.y + 2, 8, pos.height - 4);
+      }
+    }
     
     // Texto del espacio
     this.drawSpaceText(space, pos);
+    
+    // Dibujar icono según el tipo
+    this.drawSpaceIcon(space, pos);
+  }
+
+  drawRoundedRect(x, y, width, height, radius) {
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + radius, y);
+    this.ctx.lineTo(x + width - radius, y);
+    this.ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    this.ctx.lineTo(x + width, y + height - radius);
+    this.ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    this.ctx.lineTo(x + radius, y + height);
+    this.ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    this.ctx.lineTo(x, y + radius);
+    this.ctx.quadraticCurveTo(x, y, x + radius, y);
+    this.ctx.closePath();
+    this.ctx.fill();
+  }
+
+  drawSpaceIcon(space, pos) {
+    const iconSize = Math.max(12, Math.min(pos.width, pos.height) / 4);
+    const iconX = pos.x + pos.width - iconSize - 3;
+    const iconY = pos.y + 3;
+    
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = `${iconSize}px Arial`;
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    
+    let icon = '';
+    switch(space.type) {
+      case 'START': icon = '🏁'; break;
+      case 'JAIL': icon = '🔒'; break;
+      case 'FREE_PARKING': icon = '🅿️'; break;
+      case 'GO_TO_JAIL': icon = '⚡'; break;
+      case 'TAX': icon = '💸'; break;
+      case 'RAILROAD': icon = '🚂'; break;
+      case 'UTILITY': icon = '⚡'; break;
+      case 'COMMUNITY_CHEST': icon = '📦'; break;
+      case 'CHANCE': icon = '❓'; break;
+      case 'PROPERTY': icon = '🏠'; break;
+      default: icon = ''; break;
+    }
+    
+    if (icon && !pos.isCorner) {
+      this.ctx.fillText(icon, iconX + iconSize/2, iconY + iconSize/2);
+    }
   }
   
   drawSpaceText(space, pos) {
-    this.ctx.fillStyle = space.type === 'RAILROAD' ? '#FFFFFF' : '#000000';
+    // Color del texto con mejor contraste
+    let textColor = '#FFFFFF';
+    if (space.type === 'PROPERTY' || space.type === 'TAX' || space.type === 'UTILITY' && space.group !== 'railroad') {
+      textColor = '#000000';
+    }
     
-    // Ajustar tamaño de fuente según el tamaño del tablero
-    const baseFontSize = Math.max(8, this.boardSize / 70);
-    this.ctx.font = pos.isCorner ? `${baseFontSize + 2}px Arial` : `${baseFontSize}px Arial`;
+    this.ctx.fillStyle = textColor;
+    this.ctx.strokeStyle = textColor === '#FFFFFF' ? '#000000' : '#FFFFFF';
+    this.ctx.lineWidth = 1;
+    
+    // Ajustar tamaño de fuente más grande para mejor visibilidad
+    const baseFontSize = Math.max(10, this.boardSize / 60); // Aumentado de /80 a /60
+    this.ctx.font = pos.isCorner ? `bold ${baseFontSize + 6}px Arial` : `bold ${baseFontSize + 2}px Arial`; // Aumentado
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     
@@ -194,39 +383,103 @@ export class Board {
     let lines = [];
     
     if (pos.isCorner) {
-      // Para las esquinas, usar el nombre completo
-      lines = this.wrapText(space.name, pos.width - 10);
+      // Para las esquinas, usar el nombre completo con mejor formato
+      lines = this.wrapText(space.name, pos.width - 20);
     } else {
       // Para espacios normales, abreviar si es necesario
-      if (words.length > 1 && space.name.length > 12) {
-        lines = words.map(word => word.length > 8 ? word.substring(0, 6) + '.' : word);
+      if (words.length > 1 && space.name.length > 15) {
+        // Usar abreviaciones inteligentes
+        lines = words.map(word => {
+          if (word.length > 8) {
+            return word.substring(0, 6) + '.';
+          }
+          return word;
+        });
+        if (lines.length > 2) {
+          lines = [lines[0], lines.slice(1).join(' ')];
+        }
       } else {
-        lines = this.wrapText(space.name, pos.width - 8);
+        lines = this.wrapText(space.name, pos.width - 12); // Reducido margen para más espacio
       }
     }
     
-    const lineHeight = pos.isCorner ? baseFontSize + 4 : baseFontSize + 2;
-    const startY = pos.y + pos.height/2 - ((lines.length - 1) * lineHeight / 2);
+    const lineHeight = pos.isCorner ? baseFontSize + 8 : baseFontSize + 4; // Aumentado espaciado
+    let startY = pos.y + pos.height/2 - ((lines.length - 1) * lineHeight / 2);
     
+    // Ajustar posición si hay barra de color de grupo
+    if (space.type === 'PROPERTY' && space.group && !pos.isCorner) {
+      if (pos.width > pos.height) { // Casilla horizontal
+        startY += 6; // Aumentado offset
+      } else { // Casilla vertical
+        // El texto ya está centrado correctamente
+      }
+    }
+    
+    // Dibujar texto con efecto de sombra más pronunciado para mejor legibilidad
     lines.forEach((line, i) => {
-      this.ctx.fillText(
-        line,
-        pos.x + pos.width/2,
-        startY + (i * lineHeight)
-      );
+      const textX = pos.x + pos.width/2;
+      const textY = startY + (i * lineHeight);
+      
+      // Sombra del texto más fuerte para mejor legibilidad
+      if (textColor === '#FFFFFF') {
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // Sombra más fuerte
+        this.ctx.fillText(line, textX + 1, textY + 1);
+        this.ctx.fillText(line, textX + 2, textY + 2); // Doble sombra
+      } else {
+        // Contorno blanco para texto negro
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeText(line, textX, textY);
+      }
+      
+      // Texto principal
+      this.ctx.fillStyle = textColor;
+      this.ctx.fillText(line, textX, textY);
     });
     
     // Mostrar precio si es una propiedad
     if (space.price && !pos.isCorner) {
-      this.ctx.font = `${Math.max(6, baseFontSize - 2)}px Arial`;
+      const priceText = `$${(space.price / 1000)}K`;
+      const priceFontSize = Math.max(8, baseFontSize - 1); // Aumentado de -2 a -1
+      
+      this.ctx.font = `bold ${priceFontSize}px Arial`; // Agregado bold
+      
+      // Fondo semi-transparente para el precio
+      const textMetrics = this.ctx.measureText(priceText);
+      const priceWidth = textMetrics.width + 6; // Aumentado padding
+      const priceHeight = priceFontSize + 4; // Aumentado padding
+      const priceX = pos.x + pos.width - priceWidth - 2;
+      const priceY = pos.y + pos.height - priceHeight - 2;
+      
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; // Fondo más opaco
+      this.ctx.fillRect(priceX, priceY, priceWidth, priceHeight);
+      
+      // Borde dorado del fondo
+      this.ctx.strokeStyle = '#FFD700';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(priceX, priceY, priceWidth, priceHeight);
+      
+      // Texto del precio en dorado con sombra
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      this.ctx.textAlign = 'center';
       this.ctx.fillText(
-        `$${(space.price/1000).toFixed(0)}K`,
-        pos.x + pos.width/2,
-        pos.y + pos.height - 8
+        priceText,
+        priceX + priceWidth/2 + 1,
+        priceY + priceHeight/2 + 1
       );
+      
+      this.ctx.fillStyle = '#FFD700';
+      this.ctx.fillText(
+        priceText,
+        priceX + priceWidth/2,
+        priceY + priceHeight/2 + 1
+      );
+      
+      // Resetear align
+      this.ctx.textAlign = 'center';
     }
   }
-  
+
   wrapText(text, maxWidth) {
     const words = text.split(' ');
     const lines = [];
