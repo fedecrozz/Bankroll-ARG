@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const containerRect = container.getBoundingClientRect();
     
     // Mantener proporción cuadrada con más margen para el tablero
-    const maxSize = Math.min(containerRect.width - 40, containerRect.height - 40, 650);
+    const maxSize = Math.min(containerRect.width - 40, containerRect.height - 40, 850); // Aumentado de 650 a 850
     canvas.width = maxSize;
     canvas.height = maxSize;
     

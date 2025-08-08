@@ -10,9 +10,9 @@ export class Board {
     // Dimensiones del tablero - ajustar al 90% del canvas para dejar margen
     const canvasSize = Math.min(canvas.width, canvas.height);
     this.boardSize = canvasSize * 0.90;
-    this.spaceWidth = this.boardSize * 0.125; // Aproximadamente 1/8 del tablero
-    this.spaceHeight = this.boardSize * 0.095; // Proporción para que quepan bien
-    this.cornerSize = this.boardSize * 0.125;
+    this.spaceWidth = this.boardSize * 0.135; // Ancho de celda
+    this.spaceHeight = this.boardSize * 0.135; // Altura igual al ancho para celdas cuadradas
+    this.cornerSize = this.boardSize * 0.135; // Esquinas del mismo tamaño que las celdas normales
     
     // Posición del tablero en el canvas - centrado
     this.offsetX = (canvas.width - this.boardSize) / 2;
@@ -23,61 +23,59 @@ export class Board {
   
   calculateSpacePositions() {
     const positions = [];
-    const spacesPerSide = 7; // 6 espacios normales + 1 esquina por lado
+    const spacesPerSide = 6; // Solo 6 espacios normales por lado, las esquinas se agregan por separado
     
-    // Lado inferior (derecha a izquierda)
-    for (let i = 0; i < spacesPerSide; i++) {
-      if (i === 0) {
-        // Esquina inferior derecha (LARGADA)
-        positions.push({
-          x: this.offsetX + this.boardSize - this.cornerSize,
-          y: this.offsetY + this.boardSize - this.cornerSize,
-          width: this.cornerSize,
-          height: this.cornerSize,
-          isCorner: true
-        });
-      } else {
-        positions.push({
-          x: this.offsetX + this.boardSize - this.cornerSize - (i * this.spaceWidth),
-          y: this.offsetY + this.boardSize - this.spaceHeight,
-          width: this.spaceWidth,
-          height: this.spaceHeight,
-          isCorner: false
-        });
-      }
-    }
-    
-    // Esquina inferior izquierda (CÁRCEL)
+    // Esquina inferior derecha (LARGADA) - Posición 0
     positions.push({
-      x: this.offsetX,
-      y: this.offsetY + this.boardSize - this.cornerSize,
-      width: this.cornerSize,
-      height: this.cornerSize,
+      x: this.offsetX + this.boardSize - this.spaceWidth,
+      y: this.offsetY + this.boardSize - this.spaceHeight,
+      width: this.spaceWidth,
+      height: this.spaceHeight,
       isCorner: true
     });
     
-    // Lado izquierdo (abajo hacia arriba)
-    for (let i = 1; i < spacesPerSide; i++) {
+    // Lado inferior (derecha a izquierda) - Posiciones 1-6
+    for (let i = 1; i <= spacesPerSide; i++) {
       positions.push({
-        x: this.offsetX,
-        y: this.offsetY + this.boardSize - this.cornerSize - (i * this.spaceWidth),
-        width: this.spaceHeight,
-        height: this.spaceWidth,
+        x: this.offsetX + this.boardSize - this.spaceWidth - (i * this.spaceWidth),
+        y: this.offsetY + this.boardSize - this.spaceHeight,
+        width: this.spaceWidth,
+        height: this.spaceHeight,
         isCorner: false
       });
     }
     
-    // Esquina superior izquierda (ESTACIONAMIENTO LIBRE)
+    // Esquina inferior izquierda (CÁRCEL) - Posición 7
     positions.push({
       x: this.offsetX,
-      y: this.offsetY,
-      width: this.cornerSize,
-      height: this.cornerSize,
+      y: this.offsetY + this.boardSize - this.spaceHeight,
+      width: this.spaceWidth,
+      height: this.spaceHeight,
       isCorner: true
     });
     
-    // Lado superior (izquierda a derecha)
-    for (let i = 1; i < spacesPerSide; i++) {
+    // Lado izquierdo (abajo hacia arriba) - Posiciones 8-13
+    for (let i = 1; i <= spacesPerSide; i++) {
+      positions.push({
+        x: this.offsetX,
+        y: this.offsetY + this.boardSize - this.spaceHeight - (i * this.spaceHeight),
+        width: this.spaceWidth,
+        height: this.spaceHeight,
+        isCorner: false
+      });
+    }
+    
+    // Esquina superior izquierda (ESTACIONAMIENTO LIBRE) - Posición 14
+    positions.push({
+      x: this.offsetX,
+      y: this.offsetY,
+      width: this.spaceWidth,
+      height: this.spaceHeight,
+      isCorner: true
+    });
+    
+    // Lado superior (izquierda a derecha) - Posiciones 15-20
+    for (let i = 1; i <= spacesPerSide; i++) {
       positions.push({
         x: this.offsetX + (i * this.spaceWidth),
         y: this.offsetY,
@@ -87,22 +85,22 @@ export class Board {
       });
     }
     
-    // Esquina superior derecha (VE A LA CÁRCEL)
+    // Esquina superior derecha (VE A LA CÁRCEL) - Posición 21
     positions.push({
-      x: this.offsetX + this.boardSize - this.cornerSize,
+      x: this.offsetX + this.boardSize - this.spaceWidth,
       y: this.offsetY,
-      width: this.cornerSize,
-      height: this.cornerSize,
+      width: this.spaceWidth,
+      height: this.spaceHeight,
       isCorner: true
     });
     
-    // Lado derecho (arriba hacia abajo)
-    for (let i = 1; i < spacesPerSide; i++) {
+    // Lado derecho (arriba hacia abajo) - Posiciones 22-27
+    for (let i = 1; i <= spacesPerSide; i++) {
       positions.push({
-        x: this.offsetX + this.boardSize - this.spaceHeight,
-        y: this.offsetY + (i * this.spaceWidth),
-        width: this.spaceHeight,
-        height: this.spaceWidth,
+        x: this.offsetX + this.boardSize - this.spaceWidth,
+        y: this.offsetY + (i * this.spaceHeight),
+        width: this.spaceWidth,
+        height: this.spaceHeight,
         isCorner: false
       });
     }
@@ -373,8 +371,8 @@ export class Board {
     this.ctx.lineWidth = 1;
     
     // Ajustar tamaño de fuente más grande para mejor visibilidad
-    const baseFontSize = Math.max(10, this.boardSize / 60); // Aumentado de /80 a /60
-    this.ctx.font = pos.isCorner ? `bold ${baseFontSize + 6}px Arial` : `bold ${baseFontSize + 2}px Arial`; // Aumentado
+    const baseFontSize = Math.max(12, this.boardSize / 50); // Aumentado de /60 a /50 para fuente más grande
+    this.ctx.font = pos.isCorner ? `bold ${baseFontSize + 8}px Arial` : `bold ${baseFontSize + 4}px Arial`; // Aumentado aún más
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
     
@@ -403,7 +401,7 @@ export class Board {
       }
     }
     
-    const lineHeight = pos.isCorner ? baseFontSize + 8 : baseFontSize + 4; // Aumentado espaciado
+    const lineHeight = pos.isCorner ? baseFontSize + 10 : baseFontSize + 6; // Aumentado espaciado para mejor legibilidad
     let startY = pos.y + pos.height/2 - ((lines.length - 1) * lineHeight / 2);
     
     // Ajustar posición si hay barra de color de grupo

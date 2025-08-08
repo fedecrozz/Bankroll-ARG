@@ -124,7 +124,7 @@ body {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   padding: 1rem;
   position: relative;
-  min-width: 400px;
+  min-width: 650px; /* Aumentado de 400px para dar más espacio al tablero */
 }
 
 #game-canvas {
@@ -139,15 +139,15 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 380px; /* Aumentado de 280px */
-  height: 380px; /* Aumentado de 280px */
+  width: 350px; /* Reducido ligeramente para proporción con tablero más grande */
+  height: 350px; /* Reducido ligeramente para proporción con tablero más grande */
   background: rgba(255, 255, 255, 0.95);
   border: 2px solid var(--primary-blue);
   border-radius: 15px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
-  padding: 1.5rem; /* Aumentado padding */
+  padding: 1.2rem; /* Ajustado padding */
   z-index: 10;
   backdrop-filter: blur(5px);
   overflow: hidden; /* Evitar desbordamiento */
@@ -336,9 +336,9 @@ body {
 /* Responsive Design for Board Center */
 @media (max-width: 768px) {
   .board-center {
-    width: 320px; /* Aumentado de 240px */
-    height: 320px; /* Aumentado de 240px */
-    padding: 1rem; /* Aumentado padding */
+    width: 280px; /* Reducido para móviles pero manteniendo legibilidad */
+    height: 280px; /* Reducido para móviles pero manteniendo legibilidad */
+    padding: 0.8rem; /* Padding reducido para móviles */
   }
   
   .turn-header h3 {
@@ -558,8 +558,8 @@ body {
   
   .board-container {
     order: 2;
-    height: 60vh;
-    min-height: 400px;
+    height: 65vh; /* Aumentado de 60vh para dar más espacio */
+    min-height: 500px; /* Aumentado de 400px */
     min-width: auto;
   }
   
