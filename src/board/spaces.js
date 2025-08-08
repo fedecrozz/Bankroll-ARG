@@ -73,16 +73,13 @@ export const boardSpaces = [
     description: "Quebrada de Humahuaca"
   },
 
-  // Cuyo (Color Vino - #722F37)
+  // Casilla especial - Destino
   {
     id: 11,
-    name: "Mendoza",
-    type: "PROPERTY",
-    price: 280000,
-    rent: [24000, 120000, 360000, 850000, 1025000, 1200000],
-    group: "cuyo",
-    color: "#722F37",
-    description: "Capital del vino"
+    name: "Destino",
+    type: "CHANCE",
+    description: "Eventos inesperados del país",
+    color: "#4B0082"
   },
   {
     id: 12,
@@ -108,29 +105,29 @@ export const boardSpaces = [
   // Buenos Aires (Color Verde - #228B22)
   {
     id: 14,
-    name: "La Plata",
+    name: "Mendoza",
     type: "PROPERTY",
     price: 350000,
     rent: [35000, 175000, 500000, 1100000, 1300000, 1500000],
-    group: "bsas",
-    color: "#228B22",
-    description: "Ciudad de las diagonales"
+    group: "cuyo",
+    color: "#722F37",
+    description: "Capital del vino"
   },
   {
     id: 15,
-    name: "Tigre",
+    name: "Calafate",
     type: "PROPERTY",
     price: 400000,
     rent: [40000, 200000, 600000, 1400000, 1700000, 2000000],
-    group: "bsas",
-    color: "#228B22",
-    description: "Delta y parques"
+    group: "patagonia",
+    color: "#B0E0E6",
+    description: "Glaciar Perito Moreno"
   },
 
   // Servicios Públicos
   {
     id: 16,
-    name: "Agua y Energía",
+    name: "Aysa",
     type: "UTILITY",
     price: 150000,
     multiplier: [4, 10],
@@ -150,13 +147,10 @@ export const boardSpaces = [
   },
   {
     id: 5,
-    name: "Calafate",
-    type: "PROPERTY",
-    price: 160000,
-    rent: [12000, 60000, 180000, 500000, 700000, 900000],
-    group: "patagonia",
-    color: "#B0E0E6",
-    description: "Glaciar Perito Moreno"
+    name: "CÁRCEL",
+    type: "JAIL",
+    description: "Solo de visita o preso",
+    color: "#4B0082"
   },
   {
     id: 6,
@@ -187,12 +181,15 @@ export const boardSpaces = [
     description: "Distrito más exclusivo de CABA"
   },
   
-  // Esquina inferior izquierda - Cárcel
   {
     id: 7,
-    name: "CÁRCEL",
-    type: "JAIL",
-    description: "Solo de visita o preso"
+    name: "Palermo",
+    type: "PROPERTY",
+    price: 450000,
+    rent: [35000, 175000, 500000, 1100000, 1300000, 1500000],
+    group: "bsas",
+    color: "#228B22",
+    description: "Barrio icónico de Buenos Aires con sus bosques y lagos"
   },
   
   // Lado izquierdo (abajo hacia arriba)
@@ -215,13 +212,10 @@ export const boardSpaces = [
   },
   {
     id: 10,
-    name: "Belgrano",
-    type: "PROPERTY",
-    price: 140000,
-    rent: [10000, 50000, 150000, 450000, 625000, 750000],
-    group: "bsas",
-    color: "#228B22",
-    description: "Zona residencial premium"
+    name: "ESTACIONAMIENTO LIBRE",
+    type: "FREE_PARKING",
+    description: "Lugar de descanso, sin acciones",
+    color: "#4B0082"
   },
   {
     id: 11,
@@ -252,12 +246,13 @@ export const boardSpaces = [
     description: "La Docta - Ciudad universitaria"
   },
   
-  // Esquina superior izquierda - Estacionamiento libre
   {
     id: 14,
-    name: "ESTACIONAMIENTO LIBRE",
-    type: "FREE_PARKING",
-    description: "Lugar de descanso, sin acciones"
+    name: "Edenor",
+    type: "UTILITY",
+    price: 150000,
+    multiplier: [4, 10],
+    description: "Compañía de energía eléctrica"
   },
   
   // Lado superior (izquierda a derecha)
@@ -273,9 +268,13 @@ export const boardSpaces = [
   },
   {
     id: 16,
-    name: "Destino",
-    type: "CHANCE",
-    description: "Eventos inesperados del país"
+    name: "Santa Fe",
+    type: "PROPERTY",
+    price: 200000,
+    rent: [16000, 80000, 220000, 600000, 800000, 1000000],
+    group: "centro",
+    color: "#DEB887",
+    description: "Ciudad histórica del Litoral"
   },
   {
     id: 17,
@@ -357,7 +356,7 @@ export const boardSpaces = [
   },
   {
     id: 26,
-    name: "Tren a Tigre",
+    name: "Tren a Calafate",
     type: "RAILROAD",
     price: 200000,
     rent: [25000, 50000, 100000, 200000],
@@ -393,5 +392,5 @@ export const railroads = [
   { id: 5, name: "Aeropuerto Ezeiza" },
   { id: 12, name: "Terminal Retiro" },
   { id: 19, name: "Subte Línea D" },
-  { id: 26, name: "Tren a Tigre" }
+  { id: 26, name: "Tren a Calafate" }
 ];
