@@ -78,146 +78,143 @@ export const communityChestCards = [
   },
   {
     id: 12,
-    title: "Plan Ahora 12",
-    description: "Compraste electrodomésticos en cuotas sin interés.",
+    title: "Dividendos",
+    description: "Tus inversiones en la bolsa dieron frutos.",
     action: "COLLECT",
     amount: 60000
   },
   {
     id: 13,
-    title: "Patente del Auto",
-    description: "Renovaste la patente del vehículo.",
+    title: "Ganancias AFIP",
+    description: "AFIP te reclama impuesto a las ganancias.",
     action: "PAY",
-    amount: 25000
+    amount: 45000
   },
   {
     id: 14,
     title: "Aguinaldo",
-    description: "Cobraste el aguinaldo completo.",
+    description: "Cobrás el aguinaldo de fin de año.",
     action: "COLLECT",
     amount: 75000
   },
   {
     id: 15,
-    title: "Carta Documento",
-    description: "Te llegó una carta documento. Pagás gastos legales.",
+    title: "Medicina Prepaga",
+    description: "Renovás la medicina prepaga familiar.",
     action: "PAY",
-    amount: 30000
+    amount: 25000
   },
   {
     id: 16,
-    title: "Reintegro de Medicina Prepaga",
-    description: "La obra social te reintegra gastos médicos.",
+    title: "Bono de Productividad",
+    description: "Te dan un bono por buen rendimiento laboral.",
     action: "COLLECT",
-    amount: 85000
+    amount: 55000
   }
 ];
 
-// Cartas de destino/suerte con temática argentina
 export const chanceCards = [
   {
     id: 1,
-    title: "Aumento de Sueldo",
-    description: "Tu jefe te aumentó el sueldo.",
-    action: "COLLECT",
-    amount: 80000
+    title: "Devaluación",
+    description: "El peso se devalúa 30%. Perdés dinero.",
+    action: "PAY_PERCENTAGE",
+    percentage: 30
   },
   {
     id: 2,
     title: "Inflación Mensual",
-    description: "La inflación se comió tus ahorros.",
+    description: "La inflación se come tus ahorros.",
     action: "PAY",
     amount: 50000
   },
   {
     id: 3,
-    title: "Dólar Oficial",
-    description: "Compraste dólares al precio oficial.",
-    action: "COLLECT",
-    amount: 120000
+    title: "Dólar Turista",
+    description: "Te cobran impuesto por comprar dólares.",
+    action: "PAY",
+    amount: 35000
   },
   {
     id: 4,
-    title: "Controles de Precios",
-    description: "Multa por no respetar precios máximos.",
-    action: "PAY",
+    title: "Bonos del Estado",
+    description: "Invertiste en LELIQs y ganaste.",
+    action: "COLLECT",
     amount: 70000
   },
   {
     id: 5,
-    title: "Feriado Puente",
-    description: "Trabajaste en feriado puente. Cobrás extra.",
+    title: "Plan Trabajar",
+    description: "Te incluyen en un plan social.",
     action: "COLLECT",
-    amount: 45000
+    amount: 40000
   },
   {
     id: 6,
-    title: "Cepo Cambiario",
-    description: "No podés comprar dólares. Perdés inversión.",
-    action: "PAY",
-    amount: 90000
+    title: "Corralito Bancario",
+    description: "No podés sacar dinero del banco.",
+    action: "LOSE_TURN"
   },
   {
     id: 7,
-    title: "Subsidio Energético",
-    description: "El Estado subsidia tu factura de gas.",
-    action: "COLLECT",
-    amount: 35000
+    title: "Blanqueo de Capitales",
+    description: "Regularizás tu situación fiscal.",
+    action: "GET_OUT_OF_JAIL_FREE"
   },
   {
     id: 8,
-    title: "Ganancias",
-    description: "Pagás el impuesto a las ganancias.",
-    action: "PAY",
-    amount: 110000
-  },
-  {
-    id: 9,
-    title: "Plan Social",
-    description: "Te aprueban un plan social.",
-    action: "COLLECT",
-    amount: 55000
-  },
-  {
-    id: 10,
-    title: "Bienes Personales",
-    description: "Pagás el impuesto a los bienes personales.",
+    title: "Fuga de Capitales",
+    description: "Tus dólares se fueron al exterior.",
     action: "PAY",
     amount: 80000
   },
   {
-    id: 11,
-    title: "Blanqueo de Capitales",
-    description: "Blanqueaste dinero sin penalidad.",
-    action: "COLLECT",
-    amount: 150000
+    id: 9,
+    title: "Préstamo FMI",
+    description: "El país recibe dólares del FMI. Todos cobran.",
+    action: "COLLECT_FROM_ALL",
+    amount: 30000
   },
   {
-    id: 12,
-    title: "Piquete",
-    description: "Un piquete te hizo llegar tarde. Perdés el día.",
+    id: 10,
+    title: "Cepo Cambiario",
+    description: "No podés comprar dólares. Perdés turno.",
     action: "LOSE_TURN"
   },
   {
-    id: 13,
-    title: "Bono de Guerra",
-    description: "El gobierno emite bonos que compraste.",
+    id: 11,
+    title: "Mercado Libre",
+    description: "Vendiste productos online y ganaste.",
     action: "COLLECT",
     amount: 65000
   },
   {
+    id: 12,
+    title: "Tarjeta de Crédito",
+    description: "Te aumentaron el límite y gastaste más.",
+    action: "PAY",
+    amount: 55000
+  },
+  {
+    id: 13,
+    title: "Crypto Rally",
+    description: "Tus bitcoins subieron de precio.",
+    action: "COLLECT",
+    amount: 90000
+  },
+  {
     id: 14,
-    title: "Devaluación",
-    description: "Se devaluó el peso. Perdés poder adquisitivo.",
-    action: "PAY_PERCENTAGE",
-    percentage: 8
+    title: "Patente del Auto",
+    description: "Llegó el impuesto automotor.",
+    action: "PAY",
+    amount: 42000
   },
   {
     id: 15,
-    title: "Mercado Libre",
-    description: "Vendiste cosas usadas online.",
+    title: "Fintech Argentina",
+    description: "Invertiste en una startup exitosa.",
     action: "COLLECT",
-    amount: 40000
+    amount: 85000
   },
   {
     id: 16,
@@ -290,7 +287,7 @@ export const destinyCards = [
     amount: 105000
   },
 
-  // Acciones especiales balanceadas (6 cartas)
+  // Acciones especiales competitivas (6 cartas)
   {
     id: 9,
     title: "🚔 Va directo a la cárcel",

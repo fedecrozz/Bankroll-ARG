@@ -1,13 +1,17 @@
 import { Board } from '../board/Board.js';
 import { Player } from '../player/Player.js';
-import { communityChestCards, chanceCards, shuffleCards } from '../board/cards.js';
+import { communityChestCards, chanceCards, destinyCards, shuffleCards } from '../board/cards.js';
 import { boardSpaces } from '../board/spaces.js';
 import { DiceAnimation } from '../ui/DiceAnimation.js';
+import SoundManager from '../sound/SoundManager.js';
 
 export class Game {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    
+    // Inicializar administrador de sonidos
+    this.soundManager = new SoundManager();
     this.board = new Board(canvas, this.ctx);
     this.diceAnimation = new DiceAnimation(canvas);
     
@@ -21,6 +25,7 @@ export class Game {
     this.canBuyProperty = false;
     this.canEndTurn = false;
     this.waitingForBuyDecision = false; // Nueva variable para esperar decisión de compra
+    this.forceEndTurn = false; // Variable para forzar fin de turno (cartas DESTINO)
     
     // Límites de dinero para terminar el juego
     this.winLimit = 7500000; // $7.500.000 para ganar (configurable)
@@ -34,8 +39,10 @@ export class Game {
     // Cartas
     this.communityChestDeck = shuffleCards(communityChestCards);
     this.chanceDeck = shuffleCards(chanceCards);
+    this.destinyDeck = shuffleCards(destinyCards);
     this.communityChestIndex = 0;
     this.chanceIndex = 0;
+    this.destinyIndex = 0;
     
     // Callbacks para la UI
     this.onGameStateChange = null;
@@ -84,6 +91,7 @@ export class Game {
     this.canBuyProperty = false;
     this.canEndTurn = false;
     this.waitingForBuyDecision = false;
+    this.forceEndTurn = false;
     
     // Colores predefinidos para los jugadores
     const playerColors = ['#FF0000', '#0000FF', '#00FF00', '#FFFF00', '#FF00FF'];
@@ -105,7 +113,13 @@ export class Game {
     this.logMessage(`💰 Cada jugador inicia con $${this.players[0].money.toLocaleString()}`);
     this.logMessage(`🎯 Turno de ${this.getCurrentPlayer().name}`);
     this.logMessage(`🎲 Presiona ESPACIO para tirar los dados`);
+    
+    // Dibujar el tablero inicial
+    this.draw();
     this.updateGameState();
+    
+    // Iniciar timer de la fase de dados para el primer jugador
+    this.ui.startTurnTimer('ROLL_DICE');
   }
   
   addPlayer(name, color) {
@@ -221,6 +235,12 @@ export class Game {
       case 'CHANCE':
         this.handleChanceLanding();
         break;
+      case 'DESTINY':
+        this.handleDestinyLanding();
+        break;
+      case 'NEGOTIATION':
+        this.handleNegotiationLanding();
+        break;
       case 'GO_TO_JAIL':
         this.handleGoToJail();
         break;
@@ -229,13 +249,17 @@ export class Game {
         this.canEndTurn = true;
         break;
       case 'JAIL':
-        this.logMessage(`👀 ${currentPlayer.name} está de visita en la cárcel`);
+        this.handleJailLanding();
+        break;
+      default:
+        this.logMessage(`❓ ${currentPlayer.name} está en ${space.name}`);
         this.canEndTurn = true;
         break;
-      case 'FREE_PARKING':
-        this.logMessage(`🅿️ ${currentPlayer.name} descansa en el estacionamiento libre`);
-        this.canEndTurn = true;
-        break;
+    }
+    
+    // Iniciar fase de decisión del timer si hay decisiones que tomar
+    if (this.waitingForBuyDecision || this.canEndTurn) {
+      this.ui.startDecisionPhase();
     }
     
     this.updateGameState();
@@ -251,11 +275,15 @@ export class Game {
         this.waitingForBuyDecision = true;
         this.logMessage(`🏠 ${space.name} está disponible por $${space.price.toLocaleString()}`);
         this.logMessage(`💰 ${currentPlayer.name} tiene $${currentPlayer.money.toLocaleString()}`);
-        this.logMessage(`❓ ¿Desea comprar esta propiedad? Presiona 'B' para comprar o 'Enter' para pasar turno`);
+        
+        // Mostrar botones centrales en lugar del mensaje tradicional
+        this.ui.showCenterButtons(true, space.name, space.price);
       } else {
         this.logMessage(`🏠 ${space.name} está disponible por $${space.price.toLocaleString()}`);
         this.logMessage(`❌ ${currentPlayer.name} no tiene suficiente dinero ($${currentPlayer.money.toLocaleString()})`);
         this.canEndTurn = true;
+        // Mostrar solo botón de pasar turno
+        this.ui.showCenterButtons(false, space.name, space.price);
       }
     } else if (space.owner !== currentPlayer.id) {
       // Propiedad ocupada - pagar alquiler automáticamente
@@ -273,6 +301,8 @@ export class Game {
     } else {
       this.logMessage(`🏠 ${currentPlayer.name} está en su propia propiedad`);
       this.canEndTurn = true;
+      // Mostrar solo botón de pasar turno
+      this.ui.showCenterButtons(false, space.name, 0);
     }
   }
   
@@ -285,11 +315,15 @@ export class Game {
         this.waitingForBuyDecision = true;
         this.logMessage(`🚂 ${space.name} está disponible por $${space.price.toLocaleString()}`);
         this.logMessage(`💰 ${currentPlayer.name} tiene $${currentPlayer.money.toLocaleString()}`);
-        this.logMessage(`❓ ¿Desea comprar este transporte? Presiona 'B' para comprar o 'Enter' para pasar turno`);
+        
+        // Mostrar botones centrales
+        this.ui.showCenterButtons(true, space.name, space.price);
       } else {
         this.logMessage(`🚂 ${space.name} está disponible por $${space.price.toLocaleString()}`);
         this.logMessage(`❌ ${currentPlayer.name} no tiene suficiente dinero ($${currentPlayer.money.toLocaleString()})`);
         this.canEndTurn = true;
+        // Mostrar solo botón de pasar turno
+        this.ui.showCenterButtons(false, space.name, space.price);
       }
     } else if (space.owner !== currentPlayer.id) {
       const owner = this.players[space.owner];
@@ -326,12 +360,22 @@ export class Game {
       }
     } else if (space.owner !== currentPlayer.id) {
       const owner = this.players[space.owner];
-      const diceTotal = this.diceRoll[0] + this.diceRoll[1];
-      const rent = owner.calculateRent(space, boardSpaces, diceTotal);
+      const rent = owner.calculateRent(space, boardSpaces);
       
       if (currentPlayer.pay(rent)) {
         owner.receive(rent);
-        this.logMessage(`💸 ${currentPlayer.name} paga $${rent.toLocaleString()} por usar ${space.name} (dados: ${diceTotal})`);
+        const ownerUtilities = owner.utilities.length;
+        this.logMessage(`💸 ${currentPlayer.name} paga $${rent.toLocaleString()} por usar ${space.name}`);
+        this.logMessage(`⚡ Propietario: ${owner.name} (${ownerUtilities} servicio${ownerUtilities !== 1 ? 's' : ''})`);
+        
+        // Mostrar información del multiplicador de alquiler
+        if (ownerUtilities === 2) {
+          this.logMessage(`📈 Alquiler con bonificación del 25% (2 servicios)`);
+        } else if (ownerUtilities === 3) {
+          this.logMessage(`📈 Alquiler con bonificación del 40% (3 servicios)`);
+        } else if (ownerUtilities === 4) {
+          this.logMessage(`🏆 Monopolio de servicios - Bonificación del 60% (4 servicios)`);
+        }
       } else {
         this.logMessage(`💸 ${currentPlayer.name} no puede pagar $${rent.toLocaleString()}!`);
         this.handleBankruptcy(currentPlayer);
@@ -372,7 +416,57 @@ export class Game {
     this.logMessage(`Destino: ${card.title} - ${card.description}`);
     this.processCard(card);
   }
+
+  handleDestinyLanding() {
+    const currentPlayer = this.getCurrentPlayer();
+    const card = this.destinyDeck[this.destinyIndex];
+    this.destinyIndex = (this.destinyIndex + 1) % this.destinyDeck.length;
+    
+    this.logMessage(`🎯 ${currentPlayer.name} saca una carta de DESTINO`);
+    
+    // Mostrar la carta con animación
+    this.ui.showDestinyCard(`${card.title}\n\n${card.description}`);
+    
+    // Guardar la carta para procesarla después
+    this.currentDestinyCard = card;
+  }
   
+  continueAfterDestiny() {
+    if (this.currentDestinyCard) {
+      this.processDestinyCard(this.currentDestinyCard);
+      this.currentDestinyCard = null;
+    }
+  }
+
+  handleNegotiationLanding() {
+    const currentPlayer = this.getCurrentPlayer();
+    this.logMessage(`💼 ${currentPlayer.name} llega a NEGOCIACIÓN - ¡Hora de intercambiar propiedades!`);
+    
+    // Verificar si hay otros jugadores con propiedades para negociar
+    const playersWithProperties = this.players.filter(player => 
+      player.id !== currentPlayer.id && 
+      !player.bankrupt && 
+      (player.properties.length > 0 || player.railroads.length > 0 || player.utilities.length > 0)
+    );
+
+    if (playersWithProperties.length === 0) {
+      this.logMessage(`📭 No hay otros jugadores con propiedades para negociar`);
+      this.canEndTurn = true;
+      return;
+    }
+
+    // Abrir modal de negociación
+    if (this.onNegotiationStart) {
+      this.onNegotiationStart({
+        currentPlayer: currentPlayer,
+        otherPlayers: playersWithProperties
+      });
+    }
+    
+    // El jugador puede terminar turno después de negociar (o cancelar)
+    this.canEndTurn = true;
+  }
+
   processCard(card) {
     const currentPlayer = this.getCurrentPlayer();
     
@@ -420,6 +514,132 @@ export class Game {
     
     this.canEndTurn = true;
   }
+
+  processDestinyCard(card) {
+    const currentPlayer = this.getCurrentPlayer();
+    
+    switch (card.action) {
+      case 'COLLECT':
+        currentPlayer.receive(card.amount);
+        this.logMessage(`💰 ${currentPlayer.name} recibe $${card.amount.toLocaleString()}`);
+        break;
+      case 'PAY':
+        if (currentPlayer.pay(card.amount)) {
+          this.logMessage(`💸 ${currentPlayer.name} paga $${card.amount.toLocaleString()}`);
+        } else {
+          this.logMessage(`❌ ${currentPlayer.name} no puede pagar $${card.amount.toLocaleString()}!`);
+        }
+        break;
+      case 'GO_TO_JAIL':
+        currentPlayer.goToJail();
+        currentPlayer.updateVisualPosition(this.board);
+        this.logMessage(`🚔 ${currentPlayer.name} va directo a la cárcel!`);
+        break;
+      case 'GO_TO_START':
+        currentPlayer.position = 0; // Posición de LARGADA
+        currentPlayer.receive(200000); // Cobra por pasar por LARGADA
+        currentPlayer.updateVisualPosition(this.board);
+        this.logMessage(`🏁 ${currentPlayer.name} va a LARGADA y cobra $200.000`);
+        break;
+      case 'DISCOUNT_PROPERTY':
+        this.handleDiscountProperty(currentPlayer, card.discount);
+        break;
+      case 'PAY_TO_POOREST':
+        this.handlePayToPoorest(currentPlayer, card.percentage);
+        break;
+      case 'EXTRA_ROLL':
+        this.handleExtraRoll(currentPlayer);
+        return; // No terminar turno automáticamente
+      case 'ALL_PAY_PERCENTAGE':
+        this.handleAllPayPercentage(card.percentage);
+        break;
+    }
+    
+    // Actualizar UI y terminar turno automáticamente
+    if (this.ui) {
+      this.ui.updatePlayerInfo();
+    }
+    
+    // Configurar estado para terminar turno FORZOSAMENTE
+    this.canEndTurn = true;
+    this.canRollDice = false;
+    this.canBuyProperty = false;
+    this.waitingForBuyDecision = false;
+    
+    // Marcar que debe terminar el turno independientemente de si sacó dobles
+    this.forceEndTurn = true;
+    
+    // Pasar al siguiente jugador después de un breve delay para que se lean los mensajes
+    setTimeout(() => {
+      this.endTurn();
+    }, 1500);
+  }
+
+  handleDiscountProperty(currentPlayer, discountPercentage) {
+    // Buscar propiedades libres
+    const freeProperties = this.board.spaces.filter(space => 
+      space.type === 'PROPERTY' && !this.isPropertyOwned(space.id)
+    );
+
+    if (freeProperties.length > 0) {
+      // Por simplicidad, dar descuento en la primera propiedad libre más cara
+      const bestProperty = freeProperties.reduce((best, current) => 
+        current.price > best.price ? current : best
+      );
+      
+      const discountedPrice = Math.floor(bestProperty.price * (100 - discountPercentage) / 100);
+      
+      if (currentPlayer.money >= discountedPrice) {
+        currentPlayer.pay(discountedPrice);
+        currentPlayer.addProperty(bestProperty);
+        this.logMessage(`💎 ${currentPlayer.name} compra ${bestProperty.name} con ${discountPercentage}% descuento por $${discountedPrice.toLocaleString()}!`);
+      } else {
+        this.logMessage(`� ${currentPlayer.name} no tiene dinero suficiente para comprar con descuento`);
+      }
+    } else {
+      this.logMessage(`😅 No hay propiedades libres para comprar con descuento`);
+    }
+  }
+
+  handlePayToPoorest(currentPlayer, percentage) {
+    // Encontrar al jugador más pobre
+    const poorestPlayer = this.players
+      .filter(player => player.id !== currentPlayer.id && !player.bankrupt)
+      .reduce((poorest, player) => player.money < poorest.money ? player : poorest);
+
+    if (poorestPlayer) {
+      const amount = Math.floor(currentPlayer.money * percentage / 100);
+      if (currentPlayer.pay(amount)) {
+        poorestPlayer.receive(amount);
+        this.logMessage(`💸 ${currentPlayer.name} paga $${amount.toLocaleString()} a ${poorestPlayer.name} (el más pobre)`);
+      }
+    }
+  }
+
+  handleExtraRoll(currentPlayer) {
+    this.logMessage(`🎲 ${currentPlayer.name} puede tirar los dados nuevamente!`);
+    this.canRollDice = true;
+    this.canEndTurn = false;
+    // No terminar turno automáticamente
+  }
+
+  handleAllPayPercentage(percentage) {
+    this.logMessage(`🏦 ¡Crisis bancaria! Todos pierden el ${percentage}% de su dinero`);
+    this.players.forEach(player => {
+      if (!player.bankrupt) {
+        const amount = Math.floor(player.money * percentage / 100);
+        player.pay(amount);
+        this.logMessage(`💸 ${player.name} pierde $${amount.toLocaleString()}`);
+      }
+    });
+  }
+
+  isPropertyOwned(spaceId) {
+    return this.players.some(player => 
+      [...player.properties, ...player.railroads, ...player.utilities]
+        .some(property => property.id === spaceId)
+    );
+  }
   
   handleGoToJail() {
     const currentPlayer = this.getCurrentPlayer();
@@ -427,6 +647,85 @@ export class Game {
     currentPlayer.updateVisualPosition(this.board);
     this.logMessage(`${currentPlayer.name} va directo a la cárcel!`);
     this.canEndTurn = true;
+  }
+
+  handleJailLanding() {
+    const currentPlayer = this.getCurrentPlayer();
+    
+    console.log('handleJailLanding called for player:', currentPlayer.name);
+    console.log('Player isInJail:', currentPlayer.isInJail);
+    console.log('this.ui exists:', !!this.ui);
+    
+    // Si el jugador ya está en la cárcel, solo está de visita
+    if (currentPlayer.isInJail) {
+      this.logMessage(`👀 ${currentPlayer.name} está de visita en la cárcel`);
+      this.canEndTurn = true;
+      return;
+    }
+
+    // Si llega a la cárcel por primera vez, se le dan opciones
+    this.logMessage(`🔒 ${currentPlayer.name} ha llegado a la cárcel!`);
+    
+    if (this.ui && this.ui.showJailOptionsModal) {
+      this.ui.showJailOptionsModal(currentPlayer);
+    } else {
+      console.error('UI or showJailOptionsModal not available');
+    }
+  }
+
+  handleJailPayment() {
+    const currentPlayer = this.getCurrentPlayer();
+    const jailFee = 750000; // $750.000 pesos
+
+    if (currentPlayer.money >= jailFee) {
+      currentPlayer.money -= jailFee;
+      this.logMessage(`💰 ${currentPlayer.name} pagó $${jailFee.toLocaleString()} para evitar la cárcel`);
+    } else {
+      this.logMessage(`❌ ${currentPlayer.name} no tiene dinero suficiente para pagar. Va a la cárcel.`);
+      currentPlayer.goToJail();
+      currentPlayer.updateVisualPosition(this.board);
+    }
+    
+    // Cerrar el modal, actualizar UI y terminar turno automáticamente
+    if (this.ui) {
+      this.ui.hideJailOptions();
+      this.ui.updatePlayerInfo();
+    }
+    
+    // Terminar turno automáticamente
+    this.canEndTurn = true;
+    this.canRollDice = false;
+    this.canBuyProperty = false;
+    this.waitingForBuyDecision = false;
+    
+    // Pasar al siguiente jugador después de un breve delay para que se vea el mensaje
+    setTimeout(() => {
+      this.endTurn();
+    }, 1000);
+  }
+
+  handleJailAcceptance() {
+    const currentPlayer = this.getCurrentPlayer();
+    currentPlayer.goToJail();
+    currentPlayer.updateVisualPosition(this.board);
+    this.logMessage(`🔒 ${currentPlayer.name} aceptó ir a la cárcel por 3 turnos`);
+    
+    // Cerrar el modal, actualizar UI y terminar turno automáticamente
+    if (this.ui) {
+      this.ui.hideJailOptions();
+      this.ui.updatePlayerInfo();
+    }
+    
+    // Terminar turno automáticamente
+    this.canEndTurn = true;
+    this.canRollDice = false;
+    this.canBuyProperty = false;
+    this.waitingForBuyDecision = false;
+    
+    // Pasar al siguiente jugador después de un breve delay para que se vea el mensaje
+    setTimeout(() => {
+      this.endTurn();
+    }, 1000);
   }
   
   buyProperty() {
@@ -438,7 +737,7 @@ export class Game {
     let success = false;
     
     if (space.type === 'PROPERTY') {
-      success = currentPlayer.buyProperty(space);
+      success = currentPlayer.buyProperty(space, this.board.spaces);
     } else if (space.type === 'RAILROAD') {
       success = currentPlayer.buyRailroad(space);
     } else if (space.type === 'UTILITY') {
@@ -448,6 +747,37 @@ export class Game {
     if (success) {
       this.logMessage(`✅ ${currentPlayer.name} compra ${space.name} por $${space.price.toLocaleString()}`);
       this.logMessage(`💰 ${currentPlayer.name} ahora tiene $${currentPlayer.money.toLocaleString()}`);
+      
+      // Reproducir sonido de compra exitosa
+      this.soundManager.playPurchase();
+      
+      // Ocultar botones centrales
+      this.ui.hideCenterButtons();
+      
+      // Verificar monopolios de propiedades
+      if (space.type === 'PROPERTY') {
+        const monopolies = currentPlayer.checkForMonopoly(this.board.spaces);
+        if (monopolies.includes(space.group)) {
+          this.logMessage(`🏆 ¡${currentPlayer.name} tiene monopolio de ${space.group.toUpperCase()}!`);
+          this.logMessage(`📈 Los alquileres de esta zona se duplican y ahora puede construir mejoras`);
+        }
+      }
+      
+      // Mostrar información especial para servicios
+      if (space.type === 'UTILITY') {
+        const utilitiesCount = currentPlayer.utilities.length;
+        this.logMessage(`🔌 ${currentPlayer.name} ahora posee ${utilitiesCount} servicio${utilitiesCount !== 1 ? 's' : ''}`);
+        
+        // Mostrar modificador de alquiler actual
+        if (utilitiesCount === 2) {
+          this.logMessage(`📈 Alquiler de servicios aumentado al 125% (2 servicios)`);
+        } else if (utilitiesCount === 3) {
+          this.logMessage(`📈 Alquiler de servicios aumentado al 140% (3 servicios)`);
+        } else if (utilitiesCount === 4) {
+          this.logMessage(`🏆 ¡Monopolio de servicios! Alquiler aumentado al 160% (4 servicios)`);
+        }
+      }
+      
       this.canBuyProperty = false;
       this.waitingForBuyDecision = false;
       this.canEndTurn = true;
@@ -457,6 +787,22 @@ export class Game {
     
     this.updateGameState();
     return success;
+  }
+  
+  skipPurchase() {
+    if (!this.waitingForBuyDecision) return;
+    
+    const currentPlayer = this.getCurrentPlayer();
+    const space = this.board.getSpace(currentPlayer.position);
+    
+    this.logMessage(`⏭️ ${currentPlayer.name} decide no comprar ${space.name}`);
+    
+    this.waitingForBuyDecision = false;
+    this.canBuyProperty = false;
+    this.canEndTurn = true;
+    
+    this.ui.hideCenterButtons();
+    this.updateGameState();
   }
   
   skipPurchase() {
@@ -535,6 +881,11 @@ export class Game {
   endTurn() {
     if (!this.canEndTurn && this.canRollDice) return;
     
+    // Ocultar dados al terminar el turno
+    if (this.diceAnimation) {
+      this.diceAnimation.hideDice();
+    }
+    
     // Si está esperando decisión de compra, no puede terminar turno
     if (this.waitingForBuyDecision) {
       this.logMessage(`❓ ${this.getCurrentPlayer().name} debe decidir si compra la propiedad primero`);
@@ -549,15 +900,24 @@ export class Game {
       return;
     }
     
-    // Verificar si sacó dobles y no está en la cárcel
+    // Verificar si sacó dobles y no está en la cárcel Y no es un turno forzado a terminar
     const isDoubles = this.diceRoll[0] === this.diceRoll[1];
-    if (isDoubles && !currentPlayer.isInJail && this.diceRoll[0] > 0) {
+    if (isDoubles && !currentPlayer.isInJail && this.diceRoll[0] > 0 && !this.forceEndTurn) {
       this.logMessage(`🎲 ${currentPlayer.name} sacó dobles! Tira otra vez.`);
       this.canRollDice = true;
       this.canEndTurn = false;
       this.canBuyProperty = false;
       this.waitingForBuyDecision = false;
+      
+      // Iniciar fase de dados del timer para el turno adicional
+      this.ui.startTurnTimer('ROLL_DICE');
     } else {
+      // Si es turno forzado, mostrar mensaje especial
+      if (this.forceEndTurn) {
+        this.logMessage(`🎯 El turno de ${currentPlayer.name} termina por carta de DESTINO`);
+        this.forceEndTurn = false; // Resetear la bandera
+      }
+      
       // Pasar al siguiente jugador activo (no en bancarrota)
       do {
         this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
@@ -572,6 +932,9 @@ export class Game {
         this.canBuyProperty = false;
         this.waitingForBuyDecision = false;
         this.diceRoll = [0, 0];
+        
+        // Iniciar fase de dados del timer (15 segundos para tirar)
+        this.ui.startTurnTimer('ROLL_DICE');
       }
     }
     
@@ -586,8 +949,9 @@ export class Game {
   }
   
   updateGameState() {
+    const currentPlayer = this.getCurrentPlayer();
     const gameState = {
-      currentPlayer: this.getCurrentPlayer(),
+      currentPlayer: currentPlayer ? currentPlayer.getInfo() : null,
       canRollDice: this.canRollDice && this.gamePhase === 'PLAYING',
       canBuyProperty: this.canBuyProperty && this.gamePhase === 'PLAYING',
       canEndTurn: this.canEndTurn && this.gamePhase === 'PLAYING',
@@ -607,6 +971,11 @@ export class Game {
     if (this.onGameStateChange) {
       this.onGameStateChange(gameState);
     }
+    
+    // Redibujar el tablero después de cada cambio de estado
+    if (this.gamePhase === 'PLAYING') {
+      this.draw();
+    }
   }
   
   draw() {
@@ -621,10 +990,28 @@ export class Game {
       player.draw(this.ctx, this.board);
     });
     
-    // Dibujar animación de dados si está activa
-    if (this.diceAnimation && this.diceAnimation.isAnimating) {
+    // Dibujar dados si están visibles (animando o mostrando resultado)
+    if (this.diceAnimation && this.diceAnimation.showDice) {
       this.diceAnimation.drawDice();
     }
+  }
+  
+  // Métodos para el sistema de timer automático
+  autoRollDice() {
+    this.logMessage(`⏰ Tiempo agotado - Tirando dados automáticamente para ${this.getCurrentPlayer().name}`);
+    this.rollDice();
+  }
+  
+  autoEndTurn() {
+    this.logMessage(`⏰ Tiempo agotado - Finalizando turno automáticamente para ${this.getCurrentPlayer().name}`);
+    // Si estaba esperando una decisión de compra, rechazarla
+    if (this.waitingForBuyDecision) {
+      this.waitingForBuyDecision = false;
+      this.canBuyProperty = false;
+      this.logMessage(`❌ ${this.getCurrentPlayer().name} no compra la propiedad por tiempo agotado`);
+    }
+    this.canEndTurn = true;
+    this.endTurn();
   }
   
   // Función para iniciar un nuevo juego
@@ -674,6 +1061,9 @@ export class Game {
       currentStep++;
       currentPos = (currentPos + 1) % 28;
       
+      // Reproducir sonido de paso
+      this.soundManager.playStep();
+      
       // Actualizar posición del jugador
       player.position = currentPos;
       player.updateVisualPosition(this.board);
@@ -682,6 +1072,11 @@ export class Game {
       if (currentPos === 0 && currentStep < totalSpaces) {
         const salary = player.collectSalary();
         this.logMessage(`💰 ${player.name} pasa por LARGADA y cobra $${salary.toLocaleString()}`);
+        
+        // Reproducir sonido especial para LARGADA
+        setTimeout(() => {
+          this.soundManager.playSalary();
+        }, 100);
       }
       
       // El tablero se redibuja automáticamente en el gameLoop
@@ -692,5 +1087,80 @@ export class Game {
     
     // Comenzar la animación
     moveOneSpace();
+  }
+
+  // Mejorar una propiedad
+  improveProperty(propertyId) {
+    const currentPlayer = this.getCurrentPlayer();
+    const property = currentPlayer.properties.find(p => p.id === propertyId);
+    
+    if (!property) {
+      this.logMessage(`❌ ${currentPlayer.name} no posee esa propiedad`);
+      return false;
+    }
+    
+    if (!currentPlayer.canImproveProperty(property)) {
+      const monopolyMsg = !currentPlayer.monopolies.includes(property.group) 
+        ? ' (necesita monopolio del color)' 
+        : '';
+      const improvementsMsg = (currentPlayer.propertyImprovements[property.id] || 0) >= 3 
+        ? ' (máximo 3 mejoras)' 
+        : '';
+      this.logMessage(`❌ No puede mejorar ${property.name}${monopolyMsg}${improvementsMsg}`);
+      return false;
+    }
+    
+    const cost = currentPlayer.getImprovementCost(property);
+    if (currentPlayer.improveProperty(property.id, cost)) {
+      const improvements = currentPlayer.propertyImprovements[property.id];
+      this.logMessage(`🏗️ ${currentPlayer.name} mejora ${property.name} (Nivel ${improvements}) por $${cost.toLocaleString()}`);
+      this.logMessage(`💰 ${currentPlayer.name} ahora tiene $${currentPlayer.money.toLocaleString()}`);
+      
+      // Mostrar nuevo alquiler
+      const newRent = currentPlayer.getPropertyRent(property);
+      this.logMessage(`📈 Nuevo alquiler: $${newRent.toLocaleString()}`);
+      
+      this.updateGameState();
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Obtener propiedades mejorables para un jugador
+  getImprovableProperties(player) {
+    return player.properties.filter(property => player.canImproveProperty(property));
+  }
+
+  // Mostrar información de monopolios y mejoras
+  showPlayerImprovements() {
+    const currentPlayer = this.getCurrentPlayer();
+    
+    if (currentPlayer.monopolies.length === 0) {
+      this.logMessage(`📋 ${currentPlayer.name} no tiene monopolios para construir mejoras`);
+      return;
+    }
+    
+    this.logMessage(`🏆 Monopolios de ${currentPlayer.name}:`);
+    currentPlayer.monopolies.forEach(group => {
+      const properties = currentPlayer.properties.filter(p => p.group === group);
+      this.logMessage(`  🎨 ${group.toUpperCase()}:`);
+      
+      properties.forEach(property => {
+        const improvements = currentPlayer.propertyImprovements[property.id] || 0;
+        const currentRent = currentPlayer.getPropertyRent(property);
+        const canImprove = currentPlayer.canImproveProperty(property);
+        const improveCost = canImprove ? currentPlayer.getImprovementCost(property) : 0;
+        
+        let status = `${property.name} - Nivel ${improvements}/3 - Alquiler: $${currentRent.toLocaleString()}`;
+        if (canImprove) {
+          status += ` - Puede mejorar por $${improveCost.toLocaleString()}`;
+        } else if (improvements >= 3) {
+          status += ` - ¡Máximo nivel!`;
+        }
+        
+        this.logMessage(`    ${status}`);
+      });
+    });
   }
 }

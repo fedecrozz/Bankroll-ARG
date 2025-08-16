@@ -8,6 +8,8 @@ export class Player {
     this.properties = [];
     this.railroads = [];
     this.utilities = [];
+    this.propertyImprovements = {}; // Almacena mejoras por ID de propiedad {propertyId: improvements}
+    this.monopolies = []; // Almacena los grupos de color que tiene monopolio
     this.isInJail = false;
     this.jailTurns = 0;
     this.getOutOfJailFreeCards = 0;
@@ -79,11 +81,17 @@ export class Player {
   }
   
   // Comprar una propiedad
-  buyProperty(property) {
+  buyProperty(property, allSpaces) {
     if (this.money >= property.price) {
       this.money -= property.price;
       this.properties.push(property);
       property.owner = this.id;
+      
+      // Verificar monopolios después de comprar
+      if (allSpaces) {
+        this.checkForMonopoly(allSpaces);
+      }
+      
       return true;
     }
     return false;
@@ -121,22 +129,26 @@ export class Player {
   // Calcular la renta de una propiedad
   calculateRent(property, allProperties, diceRoll = 0) {
     if (property.type === 'PROPERTY') {
-      let rent = property.rent[0]; // Renta base
-      
-      // Si posee todo el grupo, dobla la renta
-      if (this.ownsCompleteGroup(property.group, allProperties)) {
-        rent *= 2;
-      }
-      
-      // TODO: Agregar lógica para casas y hoteles
-      return rent;
+      // Usar el nuevo método que considera mejoras y monopolios
+      return this.getPropertyRent(property);
     } else if (property.type === 'RAILROAD') {
       const railroadsOwned = this.railroads.length;
       return property.rent[railroadsOwned - 1] || 0;
     } else if (property.type === 'UTILITY') {
       const utilitiesOwned = this.utilities.length;
-      const multiplier = utilitiesOwned === 1 ? 4 : 10;
-      return diceRoll * multiplier * 1000; // Multiplicar por 1000 para ajustar a pesos argentinos
+      const baseRent = property.baseRent || 50000;
+      
+      // Calcular multiplicador según cantidad de servicios
+      let multiplier = 1; // Alquiler base (1 servicio)
+      if (utilitiesOwned === 2) {
+        multiplier = 1.25; // 25% más
+      } else if (utilitiesOwned === 3) {
+        multiplier = 1.40; // 40% más
+      } else if (utilitiesOwned === 4) {
+        multiplier = 1.60; // 60% más
+      }
+      
+      return Math.floor(baseRent * multiplier);
     }
     
     return 0;
@@ -144,7 +156,7 @@ export class Player {
   
   // Ir a la cárcel
   goToJail() {
-    this.position = 7; // Posición de la cárcel
+    this.position = 5; // Posición de la cárcel
     this.isInJail = true;
     this.jailTurns = 0;
   }
@@ -344,10 +356,113 @@ export class Player {
       properties: this.properties.length,
       railroads: this.railroads.length,
       utilities: this.utilities.length,
+      propertiesList: this.properties.map(p => ({ 
+        name: p.name, 
+        color: p.color, 
+        type: p.type,
+        improvements: this.propertyImprovements[p.id] || 0,
+        hasMonopoly: this.monopolies.includes(p.group)
+      })),
+      railroadsList: this.railroads.map(r => ({ name: r.name, type: r.type })),
+      utilitiesList: this.utilities.map(u => ({ name: u.name, type: u.type })),
       isInJail: this.isInJail,
       jailTurns: this.jailTurns,
       bankrupt: this.bankrupt,
-      totalWealth: this.getTotalWealth()
+      totalWealth: this.getTotalWealth(),
+      monopolies: this.monopolies
     };
+  }
+
+  // Verificar si el jugador tiene monopolio de un grupo de color
+  checkForMonopoly(allSpaces) {
+    this.monopolies = []; // Resetear monopolios
+    
+    // Agrupar propiedades por grupo de color
+    const propertyGroups = {};
+    
+    // Obtener todas las propiedades del tablero agrupadas por color
+    allSpaces.filter(space => space.type === 'PROPERTY').forEach(space => {
+      if (!propertyGroups[space.group]) {
+        propertyGroups[space.group] = [];
+      }
+      propertyGroups[space.group].push(space);
+    });
+    
+    // Verificar cada grupo de color
+    Object.keys(propertyGroups).forEach(group => {
+      const propertiesInGroup = propertyGroups[group];
+      const ownedInGroup = this.properties.filter(prop => prop.group === group);
+      
+      // Si posee todas las propiedades del grupo, tiene monopolio
+      if (ownedInGroup.length === propertiesInGroup.length) {
+        this.monopolies.push(group);
+      }
+    });
+    
+    return this.monopolies;
+  }
+
+  // Mejorar una propiedad
+  improveProperty(propertyId, improvementCost) {
+    if (!this.propertyImprovements[propertyId]) {
+      this.propertyImprovements[propertyId] = 0;
+    }
+    
+    // Máximo 3 mejoras por propiedad
+    if (this.propertyImprovements[propertyId] >= 3) {
+      return false;
+    }
+    
+    if (this.money >= improvementCost) {
+      this.money -= improvementCost;
+      this.propertyImprovements[propertyId]++;
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Obtener el alquiler de una propiedad considerando mejoras y monopolio
+  getPropertyRent(property) {
+    const improvements = this.propertyImprovements[property.id] || 0;
+    const hasMonopoly = this.monopolies.includes(property.group);
+    
+    // Si no tiene mejoras pero tiene monopolio, el alquiler base se duplica
+    if (improvements === 0 && hasMonopoly) {
+      return property.rent[0] * 2;
+    }
+    
+    // Con mejoras y monopolio
+    if (hasMonopoly && improvements > 0) {
+      // Los índices 3, 4, 5 son para monopolio + mejoras
+      return property.rent[2 + improvements] || property.rent[property.rent.length - 1];
+    }
+    
+    // Solo mejoras sin monopolio
+    return property.rent[improvements] || property.rent[0];
+  }
+
+  // Obtener el costo de mejora para una propiedad
+  getImprovementCost(property) {
+    // El costo de mejora es aproximadamente el 50% del precio base de la propiedad
+    return Math.floor(property.price * 0.5);
+  }
+
+  // Verificar si puede mejorar una propiedad
+  canImproveProperty(property) {
+    // Debe tener monopolio del grupo de color
+    if (!this.monopolies.includes(property.group)) {
+      return false;
+    }
+    
+    // No debe tener más de 3 mejoras
+    const currentImprovements = this.propertyImprovements[property.id] || 0;
+    if (currentImprovements >= 3) {
+      return false;
+    }
+    
+    // Debe tener dinero suficiente
+    const cost = this.getImprovementCost(property);
+    return this.money >= cost;
   }
 }
