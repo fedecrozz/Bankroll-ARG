@@ -111,7 +111,61 @@
           </div>
         </div>
       </div>
-      
+
+      <!-- Modal de Negociación -->
+      <div id="negotiation-modal" class="modal">
+        <div class="modal-content negotiation">
+          <h2>💼 Negociación de Propiedades</h2>
+          <p id="negotiation-info">Selecciona otro jugador para intercambiar propiedades</p>
+          
+          <div class="negotiation-container">
+            <div class="current-player-section">
+              <h3 id="current-player-name">Tu inventario</h3>
+              <div id="current-player-properties" class="properties-list">
+                <!-- Propiedades del jugador actual -->
+              </div>
+            </div>
+            
+            <div class="other-players-section">
+              <h3>Otros jugadores</h3>
+              <div id="other-players-list" class="players-list">
+                <!-- Lista de otros jugadores -->
+              </div>
+            </div>
+          </div>
+          
+          <div class="modal-actions">
+            <button id="close-negotiation-btn">Cerrar Negociación</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de Opciones de Cárcel -->
+      <div id="jail-options-modal" class="modal">
+        <div class="modal-content jail-options">
+          <h2>🔒 Has llegado a la Cárcel</h2>
+          <p id="jail-player-name">¿Qué decides hacer?</p>
+          
+          <div class="jail-options-container">
+            <div class="jail-option">
+              <h3>💰 Pagar Fianza</h3>
+              <p>Paga $750.000 y continúa jugando normalmente</p>
+              <button id="jail-pay-btn" class="jail-option-btn pay">Pagar $750.000</button>
+            </div>
+            
+            <div class="jail-option">
+              <h3>🔒 Ir a la Cárcel</h3>
+              <p>Acepta ir a la cárcel por 3 turnos. No puedes moverte hasta salir.</p>
+              <button id="jail-accept-btn" class="jail-option-btn accept">Aceptar ir a la Cárcel</button>
+            </div>
+          </div>
+          
+          <div class="jail-info">
+            <small>💡 En la cárcel puedes intentar salir tirando dobles o pagando $750.000 en cualquier turno</small>
+          </div>
+        </div>
+      </div>
+
       <main class="game-container">
         <div class="board-container">
           <canvas id="game-canvas" width="600" height="600"></canvas>
@@ -123,7 +177,7 @@
                 <h3 id="current-turn-player">Turno de Jugador</h3>
                 <div class="turn-timer">
                   <div class="timer-circle">
-                    <span id="timer-seconds">60</span>
+                    <span id="timer-seconds">15</span>
                   </div>
                 </div>
               </div>
@@ -133,13 +187,8 @@
             </div>
             
             <div class="game-log-center">
-              <h4>📜 Registro del Juego</h4>
+              <h4>📜 Registro del Juego <span class="activity-indicator">●</span></h4>
               <div id="center-log-messages"></div>
-            </div>
-            
-            <div class="dice-center">
-              <div id="center-dice1" class="dice">?</div>
-              <div id="center-dice2" class="dice">?</div>
             </div>
           </div>
         </div>

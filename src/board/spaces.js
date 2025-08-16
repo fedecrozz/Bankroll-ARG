@@ -44,13 +44,11 @@ export const boardSpaces = [
   // Norte (Color Terracota - #CD853F)
   {
     id: 8,
-    name: "Salta",
-    type: "PROPERTY",
-    price: 220000,
-    rent: [18000, 90000, 250000, 700000, 875000, 1050000],
-    group: "norte",
-    color: "#CD853F",
-    description: "La linda"
+    name: "Naturgy",
+    type: "UTILITY",
+    price: 150000,
+    baseRent: 50000,
+    description: "Servicio de gas natural"
   },
   {
     id: 9,
@@ -76,9 +74,9 @@ export const boardSpaces = [
   // Casilla especial - Destino
   {
     id: 11,
-    name: "Destino",
-    type: "CHANCE",
-    description: "Eventos inesperados del país",
+    name: "🎯 Destino",
+    type: "DESTINY",
+    description: "❓ Eventos inesperados del país",
     color: "#4B0082"
   },
   {
@@ -130,7 +128,7 @@ export const boardSpaces = [
     name: "Aysa",
     type: "UTILITY",
     price: 150000,
-    multiplier: [4, 10],
+    baseRent: 50000,
     description: "Servicios básicos"
   },
 
@@ -205,16 +203,17 @@ export const boardSpaces = [
   },
   {
     id: 9,
-    name: "Empresa YPF",
+    name: "YPF",
     type: "UTILITY",
     price: 150000,
+    baseRent: 50000,
     description: "Compañía petrolera nacional"
   },
   {
     id: 10,
-    name: "ESTACIONAMIENTO LIBRE",
-    type: "FREE_PARKING",
-    description: "Lugar de descanso, sin acciones",
+    name: "🤝",
+    type: "NEGOTIATION",
+    description: "Intercambia propiedades con otros jugadores",
     color: "#4B0082"
   },
   {
@@ -251,7 +250,7 @@ export const boardSpaces = [
     name: "Edenor",
     type: "UTILITY",
     price: 150000,
-    multiplier: [4, 10],
+    baseRent: 50000,
     description: "Compañía de energía eléctrica"
   },
   
@@ -364,9 +363,9 @@ export const boardSpaces = [
   },
   {
     id: 27,
-    name: "Destino",
-    type: "CHANCE",
-    description: "Eventos inesperados del país"
+    name: "🎯 Destino",
+    type: "DESTINY",
+    description: "❓ Eventos inesperados del país"
   }
 ];
 

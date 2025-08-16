@@ -3,548 +3,418 @@ export class DiceAnimation {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.isAnimating = false;
-    this.finalValues = [1, 1];
-    this.onComplete = null;
+    this.animationProgress = 0;
+    this.dice = [];
+    this.diceSize = 60;
+    this.shadowOffset = 8;
+    this.rotationSpeed = 0.3;
+    this.showDice = false; // Nueva propiedad para controlar la visibilidad
     
-    // Propiedades de animación
-    this.animationStartTime = 0;
-    this.animationDuration = 2000; // 2 segundos de animación
-    this.rollDuration = 1500; // 1.5 segundos rodando valores aleatorios
-    
-    console.log('DiceAnimation creada, canvas:', canvas.width, 'x', canvas.height);
-    
-    // Propiedades de los dados
-    this.dice1 = {
-      x: canvas.width / 2 - 80,
-      y: canvas.height / 2 - 40,
-      size: 60,
-      value: 1,
-      rotation: 0,
-      rotationSpeed: Math.random() * 10 + 5, // Velocidad aleatoria
-      bounceOffset: 0,
-      bouncePhase: 0
+    // Configuración de colores realistas
+    this.colors = {
+      face: '#F8F8FF',        // Blanco marfil
+      shadow: '#2C2C2C',      // Sombra oscura
+      edge: '#E0E0E0',        // Bordes ligeramente grises
+      dot: '#1A1A1A',         // Puntos negros
+      highlight: '#FFFFFF',    // Brillos blancos
+      ambient: '#D0D0D0'      // Luz ambiental
     };
     
-    this.dice2 = {
-      x: canvas.width / 2 + 20,
-      y: canvas.height / 2 - 40,
-      size: 60,
-      value: 1,
-      rotation: 0,
-      rotationSpeed: Math.random() * 10 + 8, // Velocidad aleatoria diferente
-      bounceOffset: 0,
-      bouncePhase: Math.PI / 2 // Desfasado para efecto natural
-    };
+    this.initializeDice();
   }
   
-  startAnimation(dice1Value, dice2Value, callback) {
-    console.log(`Iniciando animación realista de dados: ${dice1Value} y ${dice2Value}`);
-    
-    if (this.isAnimating) {
-      console.log('Ya hay una animación en curso');
-      return;
-    }
-    
+  initializeDice() {
+    // Inicializar dos dados con posiciones y rotaciones aleatorias
+    this.dice = [
+      {
+        x: this.canvas.width / 2 - 80,
+        y: this.canvas.height / 2,
+        value: 1,
+        rotationX: 0,
+        rotationY: 0,
+        rotationZ: 0,
+        velocityX: 0,
+        velocityY: 0,
+        velocityRotX: 0,
+        velocityRotY: 0,
+        velocityRotZ: 0,
+        bounceHeight: 0,
+        settled: false
+      },
+      {
+        x: this.canvas.width / 2 + 20,
+        y: this.canvas.height / 2,
+        value: 1,
+        rotationX: 0,
+        rotationY: 0,
+        rotationZ: 0,
+        velocityX: 0,
+        velocityY: 0,
+        velocityRotX: 0,
+        velocityRotY: 0,
+        velocityRotZ: 0,
+        bounceHeight: 0,
+        settled: false
+      }
+    ];
+  }
+  
+  startAnimation(dice1Value, dice2Value, onComplete) {
     this.isAnimating = true;
-    this.finalValues = [dice1Value, dice2Value];
-    this.onComplete = callback;
-    this.animationStartTime = Date.now();
+    this.showDice = true; // Mostrar dados al iniciar animación
+    this.animationProgress = 0;
+    this.onComplete = onComplete; // Guardar el callback
     
-    // Resetear propiedades de animación
-    this.dice1.rotation = 0;
-    this.dice2.rotation = 0;
-    this.dice1.rotationSpeed = Math.random() * 15 + 10;
-    this.dice2.rotationSpeed = Math.random() * 15 + 12;
-    this.dice1.bouncePhase = 0;
-    this.dice2.bouncePhase = Math.PI / 3;
+    // Configurar valores finales
+    this.dice[0].finalValue = dice1Value;
+    this.dice[1].finalValue = dice2Value;
     
-    // Iniciar bucle de animación
+    // Timeout de seguridad para asegurar que la animación termine
+    this.safetyTimeout = setTimeout(() => {
+      if (this.isAnimating) {
+        console.log('Timeout de seguridad: forzando fin de animación');
+        this.isAnimating = false;
+        // Establecer valores finales
+        this.dice[0].value = dice1Value;
+        this.dice[1].value = dice2Value;
+        this.dice.forEach(die => die.settled = true);
+        
+        if (this.onComplete) {
+          this.onComplete();
+          this.onComplete = null;
+        }
+        
+        // Ocultar dados después del timeout de seguridad
+        setTimeout(() => {
+          this.showDice = false;
+          console.log('Dados ocultados por timeout de seguridad');
+        }, 1000);
+      }
+    }, 5000); // 5 segundos máximo
+    
+    // Configurar física inicial para animación realista
+    this.dice.forEach((die, index) => {
+      die.value = Math.floor(Math.random() * 6) + 1;
+      die.settled = false;
+      die.bounceHeight = 0;
+      
+      // Velocidades iniciales aleatorias para efecto de lanzamiento
+      die.velocityX = (Math.random() - 0.5) * 4;
+      die.velocityY = (Math.random() - 0.5) * 4;
+      die.velocityRotX = (Math.random() - 0.5) * 0.4;
+      die.velocityRotY = (Math.random() - 0.5) * 0.4;
+      die.velocityRotZ = (Math.random() - 0.5) * 0.4;
+      
+      // Posición inicial ligeramente desplazada
+      die.x = this.canvas.width / 2 + (index === 0 ? -80 : 20) + (Math.random() - 0.5) * 40;
+      die.y = this.canvas.height / 2 + (Math.random() - 0.5) * 40;
+    });
+    
     this.animate();
   }
-
+  
   animate() {
     if (!this.isAnimating) return;
     
-    const currentTime = Date.now();
-    const elapsed = currentTime - this.animationStartTime;
-    const progress = Math.min(elapsed / this.animationDuration, 1);
+    this.animationProgress += 0.016; // ~60fps
     
-    // Durante los primeros 1.5 segundos, rodar valores aleatorios
-    if (elapsed < this.rollDuration) {
-      // Valores aleatorios mientras ruedan
-      this.dice1.value = Math.floor(Math.random() * 6) + 1;
-      this.dice2.value = Math.floor(Math.random() * 6) + 1;
-      
-      // Rotación continua
-      this.dice1.rotation += this.dice1.rotationSpeed;
-      this.dice2.rotation += this.dice2.rotationSpeed;
-      
-      // Efecto bounce
-      this.dice1.bouncePhase += 0.3;
-      this.dice2.bouncePhase += 0.25;
-      this.dice1.bounceOffset = Math.sin(this.dice1.bouncePhase) * 10;
-      this.dice2.bounceOffset = Math.sin(this.dice2.bouncePhase) * 8;
-      
-      // Continuar animación
-      requestAnimationFrame(() => this.animate());
-    } else if (elapsed < this.animationDuration) {
-      // Últimos 0.5 segundos: mostrar valores finales con desaceleración
-      this.dice1.value = this.finalValues[0];
-      this.dice2.value = this.finalValues[1];
-      
-      // Desacelerar rotación
-      const decelerationFactor = 1 - (elapsed - this.rollDuration) / (this.animationDuration - this.rollDuration);
-      this.dice1.rotation += this.dice1.rotationSpeed * decelerationFactor;
-      this.dice2.rotation += this.dice2.rotationSpeed * decelerationFactor;
-      
-      // Reducir bounce gradualmente
-      const bounceReduction = decelerationFactor;
-      this.dice1.bouncePhase += 0.2 * bounceReduction;
-      this.dice2.bouncePhase += 0.15 * bounceReduction;
-      this.dice1.bounceOffset = Math.sin(this.dice1.bouncePhase) * 5 * bounceReduction;
-      this.dice2.bounceOffset = Math.sin(this.dice2.bouncePhase) * 3 * bounceReduction;
-      
-      requestAnimationFrame(() => this.animate());
-    } else {
-      // Animación completada
-      this.dice1.value = this.finalValues[0];
-      this.dice2.value = this.finalValues[1];
-      this.dice1.bounceOffset = 0;
-      this.dice2.bounceOffset = 0;
-      
-      console.log('Animación realista completada, ejecutando callback');
-      this.isAnimating = false;
-      
-      if (this.onComplete) {
-        this.onComplete();
+    // Actualizar física de los dados
+    this.dice.forEach((die, index) => {
+      if (!die.settled) {
+        // Aplicar gravedad y fricción
+        die.velocityY += 0.3; // Gravedad
+        die.velocityX *= 0.98; // Fricción
+        die.velocityY *= 0.98;
+        
+        // Actualizar posición
+        die.x += die.velocityX;
+        die.y += die.velocityY;
+        
+        // Bouncing en los bordes
+        const margin = this.diceSize / 2;
+        if (die.x < margin || die.x > this.canvas.width - margin) {
+          die.velocityX *= -0.7;
+          die.x = Math.max(margin, Math.min(this.canvas.width - margin, die.x));
+        }
+        if (die.y < margin || die.y > this.canvas.height - margin) {
+          die.velocityY *= -0.7;
+          die.y = Math.max(margin, Math.min(this.canvas.height - margin, die.y));
+        }
+        
+        // Actualizar rotaciones
+        die.rotationX += die.velocityRotX;
+        die.rotationY += die.velocityRotY;
+        die.rotationZ += die.velocityRotZ;
+        
+        // Reducir velocidades de rotación
+        die.velocityRotX *= 0.95;
+        die.velocityRotY *= 0.95;
+        die.velocityRotZ *= 0.95;
+        
+        // Cambiar valores durante la animación
+        if (Math.random() < 0.15) {
+          die.value = Math.floor(Math.random() * 6) + 1;
+        }
+        
+        // Verificar si se ha asentado
+        const totalVelocity = Math.abs(die.velocityX) + Math.abs(die.velocityY) + 
+                             Math.abs(die.velocityRotX) + Math.abs(die.velocityRotY);
+        
+        if (totalVelocity < 0.5 && this.animationProgress > 1.0) {
+          die.settled = true;
+          die.value = die.finalValue;
+          die.velocityX = 0;
+          die.velocityY = 0;
+          die.velocityRotX = 0;
+          die.velocityRotY = 0;
+          die.velocityRotZ = 0;
+          console.log(`Dado ${index + 1} asentado con valor: ${die.value}`);
+        }
       }
+    });
+    
+    // Verificar si ambos dados se han asentado
+    if (this.dice.every(die => die.settled) && this.animationProgress > 1.5) {
+      console.log('Todos los dados asentados, terminando animación...');
+      
+      // Limpiar timeout de seguridad
+      if (this.safetyTimeout) {
+        clearTimeout(this.safetyTimeout);
+        this.safetyTimeout = null;
+      }
+      
+      setTimeout(() => {
+        this.isAnimating = false;
+        console.log('Animación terminada, ejecutando callback...');
+        // Ejecutar callback cuando termina la animación
+        if (this.onComplete) {
+          this.onComplete();
+          this.onComplete = null; // Limpiar el callback
+        }
+        
+        // Ocultar dados después de 1 segundo adicional
+        setTimeout(() => {
+          this.showDice = false;
+          console.log('Dados ocultados');
+        }, 1000);
+      }, 300);
+    } else {
+      requestAnimationFrame(() => this.animate());
     }
   }
-
+  
   drawDice() {
-    // Solo dibujar si está animando
-    if (!this.isAnimating) {
-      return;
-    }
+    // Solo dibujar si se deben mostrar los dados
+    if (!this.showDice) return;
     
-    // Fondo que simula una mesa de juego
-    this.drawGameTableBackground();
-    
-    // Dibujar sombras de los dados primero (para que estén debajo)
-    this.drawDieShadow(this.dice1);
-    this.drawDieShadow(this.dice2);
-    
-    // Luego dibujar los dados
-    this.drawSingleDie(this.dice1);
-    this.drawSingleDie(this.dice2);
-    
-    // Mostrar resultado solo si la animación está cerca del final
-    const elapsed = Date.now() - this.animationStartTime;
-    if (elapsed > this.rollDuration) {
-      this.drawResult();
-    }
-  }
-
-  drawGameTableBackground() {
-    // Fondo que simula una mesa de fieltro verde como en casinos
-    const tableGradient = this.ctx.createRadialGradient(
-      this.canvas.width/2, this.canvas.height/2, 0,
-      this.canvas.width/2, this.canvas.height/2, Math.max(this.canvas.width, this.canvas.height)/2
-    );
-    tableGradient.addColorStop(0, 'rgba(0, 100, 0, 0.9)');    // Verde fieltro centro
-    tableGradient.addColorStop(0.7, 'rgba(0, 80, 0, 0.95)');  // Verde más oscuro
-    tableGradient.addColorStop(1, 'rgba(0, 50, 0, 0.98)');    // Verde muy oscuro borde
-    
-    this.ctx.fillStyle = tableGradient;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // Agregar textura sutil de fieltro
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-    for (let i = 0; i < 100; i++) {
-      const x = Math.random() * this.canvas.width;
-      const y = Math.random() * this.canvas.height;
-      this.ctx.fillRect(x, y, 1, 1);
-    }
-    
-    // Líneas sutiles para simular la textura del fieltro
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    this.ctx.lineWidth = 0.5;
-    for (let i = 0; i < 20; i++) {
-      this.ctx.beginPath();
-      const y = (i / 20) * this.canvas.height;
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(this.canvas.width, y);
-      this.ctx.stroke();
-    }
-    
-    // Borde de la mesa con efecto de profundidad
-    const borderSize = 20;
-    const borderGradient = this.ctx.createLinearGradient(0, 0, borderSize, borderSize);
-    borderGradient.addColorStop(0, 'rgba(101, 67, 33, 0.8)'); // Madera oscura
-    borderGradient.addColorStop(1, 'rgba(139, 69, 19, 0.6)'); // Madera clara
-    
-    this.ctx.fillStyle = borderGradient;
-    // Borde superior
-    this.ctx.fillRect(0, 0, this.canvas.width, borderSize);
-    // Borde inferior
-    this.ctx.fillRect(0, this.canvas.height - borderSize, this.canvas.width, borderSize);
-    // Borde izquierdo
-    this.ctx.fillRect(0, 0, borderSize, this.canvas.height);
-    // Borde derecho
-    this.ctx.fillRect(this.canvas.width - borderSize, 0, borderSize, this.canvas.height);
-  }
-
-  drawDieShadow(die) {
-    const ctx = this.ctx;
-    const shadowOffset = 8; // Sombra más prominente
-    const bounceHeight = Math.abs(die.bounceOffset);
-    
-    // Sombra más realista que se adapta a la altura del bounce
-    const shadowOpacity = Math.max(0.1, 0.5 - bounceHeight * 0.02);
-    const shadowBlur = 5 + bounceHeight * 0.3;
-    const shadowSize = die.size + bounceHeight * 0.1;
-    
-    // Sombra difusa principal
-    const shadowGradient = ctx.createRadialGradient(
-      die.x + die.size/2 + shadowOffset/2,
-      die.y + die.size/2 + shadowOffset + bounceHeight + 10,
-      0,
-      die.x + die.size/2 + shadowOffset/2,
-      die.y + die.size/2 + shadowOffset + bounceHeight + 10,
-      shadowSize
-    );
-    
-    shadowGradient.addColorStop(0, `rgba(0, 0, 0, ${shadowOpacity})`);
-    shadowGradient.addColorStop(0.5, `rgba(0, 0, 0, ${shadowOpacity * 0.6})`);
-    shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    
-    ctx.fillStyle = shadowGradient;
-    ctx.beginPath();
-    ctx.ellipse(
-      die.x + die.size/2 + shadowOffset/2,
-      die.y + die.size/2 + shadowOffset + bounceHeight + 10,
-      shadowSize * 0.8,
-      shadowSize * 0.3, // Sombra elíptica más realista
-      0, 0, 2 * Math.PI
-    );
-    ctx.fill();
-    
-    // Sombra adicional más suave y extendida
-    ctx.fillStyle = `rgba(0, 0, 0, ${shadowOpacity * 0.3})`;
-    ctx.beginPath();
-    ctx.ellipse(
-      die.x + die.size/2 + shadowOffset/3,
-      die.y + die.size/2 + shadowOffset + bounceHeight + 12,
-      shadowSize * 1.2,
-      shadowSize * 0.4,
-      0, 0, 2 * Math.PI
-    );
-    ctx.fill();
-  }
-
-  drawSingleDie(die) {
-    const ctx = this.ctx;
-    
-    ctx.save();
-    
-    // Aplicar transformaciones: posición, bounce y rotación
-    const centerX = die.x + die.size / 2;
-    const centerY = die.y + die.size / 2 + die.bounceOffset;
-    
-    ctx.translate(centerX, centerY);
-    ctx.rotate(die.rotation * Math.PI / 180);
-    ctx.translate(-die.size / 2, -die.size / 2);
-    
-    // Dibujar dado 3D con múltiples caras
-    this.draw3DDie(ctx, die.value, die.size);
-    
-    ctx.restore();
-  }
-
-  draw3DDie(ctx, value, size) {
-    const depth = size * 0.25; // Más profundidad para mayor realismo
-    
-    // Colores más realistas de dados reales
-    const faceColor = '#F8F8F8';        // Blanco marfil
-    const topColor = '#FFFFFF';         // Cara superior más brillante
-    const rightColor = '#D8D8D8';       // Cara derecha más oscura
-    const shadowColor = '#B8B8B8';      // Sombras más realistas
-    
-    // Cara frontal principal con textura sutil
-    const frontGradient = ctx.createLinearGradient(0, 0, size, size);
-    frontGradient.addColorStop(0, faceColor);
-    frontGradient.addColorStop(0.3, '#F0F0F0');
-    frontGradient.addColorStop(0.7, '#E8E8E8');
-    frontGradient.addColorStop(1, '#E0E0E0');
-    
-    ctx.fillStyle = frontGradient;
-    ctx.fillRect(0, 0, size, size);
-    
-    // Cara derecha con gradiente de profundidad
-    const rightGradient = ctx.createLinearGradient(size, 0, size + depth, 0);
-    rightGradient.addColorStop(0, rightColor);
-    rightGradient.addColorStop(0.5, '#C8C8C8');
-    rightGradient.addColorStop(1, shadowColor);
-    
-    ctx.fillStyle = rightGradient;
-    ctx.beginPath();
-    ctx.moveTo(size, 0);
-    ctx.lineTo(size + depth, -depth);
-    ctx.lineTo(size + depth, size - depth);
-    ctx.lineTo(size, size);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Cara superior con iluminación natural
-    const topGradient = ctx.createLinearGradient(0, 0, 0, -depth);
-    topGradient.addColorStop(0, topColor);
-    topGradient.addColorStop(0.6, '#F5F5F5');
-    topGradient.addColorStop(1, '#E8E8E8');
-    
-    ctx.fillStyle = topGradient;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(depth, -depth);
-    ctx.lineTo(size + depth, -depth);
-    ctx.lineTo(size, 0);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Bordes realistas del dado
-    ctx.strokeStyle = '#A0A0A0';
-    ctx.lineWidth = 1.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    // Borde cara frontal
-    ctx.strokeRect(0, 0, size, size);
-    
-    // Bordes de las caras 3D
-    ctx.strokeStyle = '#888888';
-    ctx.lineWidth = 1;
-    
-    // Borde cara derecha
-    ctx.beginPath();
-    ctx.moveTo(size, 0);
-    ctx.lineTo(size + depth, -depth);
-    ctx.lineTo(size + depth, size - depth);
-    ctx.lineTo(size, size);
-    ctx.stroke();
-    
-    // Borde cara superior
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(depth, -depth);
-    ctx.lineTo(size + depth, -depth);
-    ctx.lineTo(size, 0);
-    ctx.stroke();
-    
-    // Aristas de conexión entre caras
-    ctx.strokeStyle = '#999999';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(size, 0);
-    ctx.lineTo(size + depth, -depth);
-    ctx.stroke();
-    
-    // Esquinas redondeadas sutiles en la cara frontal
-    this.addCornerDetails(ctx, size);
-    
-    // Dibujar puntos del dado en la cara frontal
-    this.drawRealisticDiceDots(ctx, value, size);
-  }
-
-  addCornerDetails(ctx, size) {
-    // Pequeños reflejos en las esquinas para simular bordes redondeados
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    const cornerSize = size * 0.08;
-    
-    // Esquina superior izquierda
-    ctx.beginPath();
-    ctx.arc(cornerSize, cornerSize, cornerSize/2, 0, 2 * Math.PI);
-    ctx.fill();
-    
-    // Esquina superior derecha
-    ctx.beginPath();
-    ctx.arc(size - cornerSize, cornerSize, cornerSize/2, 0, 2 * Math.PI);
-    ctx.fill();
-    
-    // Esquina inferior izquierda
-    ctx.beginPath();
-    ctx.arc(cornerSize, size - cornerSize, cornerSize/2, 0, 2 * Math.PI);
-    ctx.fill();
-    
-    // Esquina inferior derecha
-    ctx.beginPath();
-    ctx.arc(size - cornerSize, size - cornerSize, cornerSize/2, 0, 2 * Math.PI);
-    ctx.fill();
-  }
-
-  drawRealisticDiceDots(ctx, value, size) {
-    const dotSize = size / 8; // Puntos más grandes y realistas
-    const offset = size / 4.5; // Mejor posicionamiento
-    const center = size / 2;
-    
-    // Función para dibujar un punto excavado realista
-    const drawRealisticDot = (x, y) => {
-      // Sombra exterior del hoyo
-      const shadowGradient = ctx.createRadialGradient(
-        x + dotSize/4, y + dotSize/4, 0,
-        x, y, dotSize * 1.2
-      );
-      shadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-      shadowGradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.1)');
-      shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+    this.dice.forEach(die => {
+      this.ctx.save();
       
-      ctx.fillStyle = shadowGradient;
-      ctx.beginPath();
-      ctx.arc(x, y, dotSize * 1.1, 0, 2 * Math.PI);
-      ctx.fill();
+      // Mover al centro del dado
+      this.ctx.translate(die.x, die.y);
       
-      // Borde del hoyo (más claro)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.beginPath();
-      ctx.arc(x, y, dotSize, 0, 2 * Math.PI);
-      ctx.fill();
+      // Dibujar sombra realista
+      this.drawShadow(die);
       
-      // Interior del hoyo con gradiente cóncavo
-      const holeGradient = ctx.createRadialGradient(
-        x - dotSize/3, y - dotSize/3, 0,
-        x, y, dotSize
-      );
-      holeGradient.addColorStop(0, '#C0C0C0'); // Borde más claro
-      holeGradient.addColorStop(0.4, '#808080'); // Medio gris
-      holeGradient.addColorStop(0.8, '#404040'); // Fondo más oscuro
-      holeGradient.addColorStop(1, '#202020'); // Centro muy oscuro
+      // Aplicar transformaciones 3D simuladas
+      this.ctx.save();
+      this.ctx.scale(1 + Math.sin(die.rotationY) * 0.1, 1 + Math.sin(die.rotationX) * 0.1);
+      this.ctx.rotate(die.rotationZ);
       
-      ctx.fillStyle = holeGradient;
-      ctx.beginPath();
-      ctx.arc(x, y, dotSize * 0.9, 0, 2 * Math.PI);
-      ctx.fill();
+      // Dibujar el dado con efecto 3D
+      this.drawDie3D(die);
       
-      // Pequeño reflejo en el borde superior del hoyo
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.beginPath();
-      ctx.arc(x - dotSize/4, y - dotSize/4, dotSize/4, 0, 2 * Math.PI);
-      ctx.fill();
-      
-      // Sombra interna en el fondo del hoyo
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.beginPath();
-      ctx.arc(x + dotSize/6, y + dotSize/6, dotSize/3, 0, 2 * Math.PI);
-      ctx.fill();
-    };
-    
-    // Patrones de puntos para cada valor (posiciones clásicas de dados reales)
-    switch(value) {
-      case 1:
-        drawRealisticDot(center, center);
-        break;
-      case 2:
-        drawRealisticDot(offset, offset);
-        drawRealisticDot(size - offset, size - offset);
-        break;
-      case 3:
-        drawRealisticDot(offset, offset);
-        drawRealisticDot(center, center);
-        drawRealisticDot(size - offset, size - offset);
-        break;
-      case 4:
-        drawRealisticDot(offset, offset);
-        drawRealisticDot(size - offset, offset);
-        drawRealisticDot(offset, size - offset);
-        drawRealisticDot(size - offset, size - offset);
-        break;
-      case 5:
-        drawRealisticDot(offset, offset);
-        drawRealisticDot(size - offset, offset);
-        drawRealisticDot(center, center);
-        drawRealisticDot(offset, size - offset);
-        drawRealisticDot(size - offset, size - offset);
-        break;
-      case 6:
-        drawRealisticDot(offset, offset);
-        drawRealisticDot(size - offset, offset);
-        drawRealisticDot(offset, center);
-        drawRealisticDot(size - offset, center);
-        drawRealisticDot(offset, size - offset);
-        drawRealisticDot(size - offset, size - offset);
-        break;
-    }
+      this.ctx.restore();
+      this.ctx.restore();
+    });
   }
-
-  drawResult() {
-    const total = this.finalValues[0] + this.finalValues[1];
+  
+  drawShadow(die) {
+    const shadowSize = this.diceSize * 0.8;
+    const shadowOpacity = 0.3;
     
     this.ctx.save();
+    this.ctx.globalAlpha = shadowOpacity;
+    this.ctx.fillStyle = this.colors.shadow;
+    this.ctx.translate(this.shadowOffset, this.shadowOffset);
     
-    // Fondo elegante para el resultado
-    const resultY = this.canvas.height / 2 + 100;
-    const resultWidth = 200;
-    const resultHeight = 50;
-    const resultX = this.canvas.width / 2 - resultWidth / 2;
-    
-    // Fondo con gradiente dorado
-    const bgGradient = this.ctx.createLinearGradient(
-      resultX, resultY - resultHeight/2,
-      resultX, resultY + resultHeight/2
-    );
-    bgGradient.addColorStop(0, 'rgba(255, 215, 0, 0.9)');
-    bgGradient.addColorStop(0.5, 'rgba(255, 193, 7, 0.95)');
-    bgGradient.addColorStop(1, 'rgba(255, 152, 0, 0.9)');
-    
-    this.ctx.fillStyle = bgGradient;
-    this.ctx.fillRect(resultX, resultY - resultHeight/2, resultWidth, resultHeight);
-    
-    // Borde dorado brillante
-    this.ctx.strokeStyle = '#FFD700';
-    this.ctx.lineWidth = 3;
-    this.ctx.strokeRect(resultX, resultY - resultHeight/2, resultWidth, resultHeight);
-    
-    // Sombra del fondo
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    this.ctx.fillRect(resultX + 3, resultY - resultHeight/2 + 3, resultWidth, resultHeight);
-    
-    // Redibujar el fondo encima de la sombra
-    this.ctx.fillStyle = bgGradient;
-    this.ctx.fillRect(resultX, resultY - resultHeight/2, resultWidth, resultHeight);
-    this.ctx.strokeRect(resultX, resultY - resultHeight/2, resultWidth, resultHeight);
-    
-    // Efecto de brillo en el texto
-    this.ctx.shadowColor = '#FFF700';
-    this.ctx.shadowBlur = 15;
-    this.ctx.shadowOffsetX = 0;
-    this.ctx.shadowOffsetY = 0;
-    
-    // Texto principal más elegante
-    this.ctx.font = 'bold 28px serif';
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.strokeStyle = '#8B4513';
-    this.ctx.lineWidth = 2;
-    this.ctx.textAlign = 'center';
-    
-    const text = `${this.finalValues[0]} + ${this.finalValues[1]} = ${total}`;
-    
-    // Dibujar contorno del texto
-    this.ctx.strokeText(text, this.canvas.width / 2, resultY);
-    // Dibujar texto con relleno
-    this.ctx.fillText(text, this.canvas.width / 2, resultY);
-    
-    // Texto decorativo arriba
-    this.ctx.font = 'italic 16px serif';
-    this.ctx.fillStyle = '#8B4513';
-    this.ctx.shadowBlur = 5;
-    this.ctx.fillText('RESULTADO', this.canvas.width / 2, resultY - 25);
+    // Sombra elíptica más realista
+    this.ctx.beginPath();
+    this.ctx.ellipse(0, shadowSize * 0.3, shadowSize * 0.7, shadowSize * 0.3, 0, 0, Math.PI * 2);
+    this.ctx.fill();
     
     this.ctx.restore();
   }
-
-  updateCanvasSize() {
-    // Actualizar posiciones de los dados cuando cambie el tamaño del canvas
-    this.dice1.x = this.canvas.width / 2 - 80;
-    this.dice1.y = this.canvas.height / 2 - 40;
+  
+  drawDie3D(die) {
+    const size = this.diceSize;
+    const half = size / 2;
     
-    this.dice2.x = this.canvas.width / 2 + 20;
-    this.dice2.y = this.canvas.height / 2 - 40;
+    // Calcular intensidad de luz basada en rotación
+    const lightIntensity = 0.5 + 0.5 * Math.cos(die.rotationY);
+    
+    // Cara frontal (más clara)
+    this.ctx.fillStyle = this.interpolateColor(this.colors.face, this.colors.highlight, lightIntensity * 0.3);
+    this.drawRoundedRect(-half, -half, size, size, 8);
+    this.ctx.fill();
+    
+    // Bordes 3D - cara derecha
+    this.ctx.fillStyle = this.interpolateColor(this.colors.edge, this.colors.ambient, lightIntensity);
+    this.ctx.beginPath();
+    this.ctx.moveTo(half, -half);
+    this.ctx.lineTo(half + 10, -half - 5);
+    this.ctx.lineTo(half + 10, half - 5);
+    this.ctx.lineTo(half, half);
+    this.ctx.closePath();
+    this.ctx.fill();
+    
+    // Bordes 3D - cara superior
+    this.ctx.fillStyle = this.interpolateColor(this.colors.edge, this.colors.highlight, lightIntensity * 0.5);
+    this.ctx.beginPath();
+    this.ctx.moveTo(-half, -half);
+    this.ctx.lineTo(-half + 5, -half - 10);
+    this.ctx.lineTo(half + 5, -half - 10);
+    this.ctx.lineTo(half, -half);
+    this.ctx.closePath();
+    this.ctx.fill();
+    
+    // Borde principal del dado
+    this.ctx.strokeStyle = this.colors.edge;
+    this.ctx.lineWidth = 2;
+    this.drawRoundedRect(-half, -half, size, size, 8);
+    this.ctx.stroke();
+    
+    // Dibujar puntos con efecto 3D
+    this.drawDots3D(die.value, size);
+    
+    // Brillo superior
+    this.ctx.save();
+    this.ctx.globalAlpha = 0.4;
+    this.ctx.fillStyle = this.colors.highlight;
+    this.ctx.beginPath();
+    this.ctx.ellipse(-half * 0.3, -half * 0.3, half * 0.4, half * 0.2, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.restore();
+  }
+  
+  drawDots3D(value, size) {
+    const dotSize = size * 0.12;
+    const margin = size * 0.25;
+    const positions = this.getDotPositions(value, size, margin);
+    
+    positions.forEach(pos => {
+      // Sombra del punto
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.3;
+      this.ctx.fillStyle = this.colors.shadow;
+      this.ctx.beginPath();
+      this.ctx.arc(pos.x + 2, pos.y + 2, dotSize, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+      
+      // Punto principal
+      this.ctx.save();
+      this.ctx.fillStyle = this.colors.dot;
+      this.ctx.beginPath();
+      this.ctx.arc(pos.x, pos.y, dotSize, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+      
+      // Brillo del punto
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.6;
+      this.ctx.fillStyle = this.colors.face;
+      this.ctx.beginPath();
+      this.ctx.arc(pos.x - dotSize * 0.3, pos.y - dotSize * 0.3, dotSize * 0.4, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+    });
+  }
+  
+  getDotPositions(value, size, margin) {
+    const positions = [];
+    
+    switch (value) {
+      case 1:
+        positions.push({x: 0, y: 0});
+        break;
+      case 2:
+        positions.push({x: -margin, y: -margin});
+        positions.push({x: margin, y: margin});
+        break;
+      case 3:
+        positions.push({x: -margin, y: -margin});
+        positions.push({x: 0, y: 0});
+        positions.push({x: margin, y: margin});
+        break;
+      case 4:
+        positions.push({x: -margin, y: -margin});
+        positions.push({x: margin, y: -margin});
+        positions.push({x: -margin, y: margin});
+        positions.push({x: margin, y: margin});
+        break;
+      case 5:
+        positions.push({x: -margin, y: -margin});
+        positions.push({x: margin, y: -margin});
+        positions.push({x: 0, y: 0});
+        positions.push({x: -margin, y: margin});
+        positions.push({x: margin, y: margin});
+        break;
+      case 6:
+        positions.push({x: -margin, y: -margin});
+        positions.push({x: margin, y: -margin});
+        positions.push({x: -margin, y: 0});
+        positions.push({x: margin, y: 0});
+        positions.push({x: -margin, y: margin});
+        positions.push({x: margin, y: margin});
+        break;
+    }
+    
+    return positions;
+  }
+  
+  drawRoundedRect(x, y, width, height, radius) {
+    this.ctx.beginPath();
+    this.ctx.moveTo(x + radius, y);
+    this.ctx.lineTo(x + width - radius, y);
+    this.ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    this.ctx.lineTo(x + width, y + height - radius);
+    this.ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    this.ctx.lineTo(x + radius, y + height);
+    this.ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    this.ctx.lineTo(x, y + radius);
+    this.ctx.quadraticCurveTo(x, y, x + radius, y);
+    this.ctx.closePath();
+  }
+  
+  interpolateColor(color1, color2, factor) {
+    // Función para interpolar entre dos colores hexadecimales
+    const hex1 = color1.replace('#', '');
+    const hex2 = color2.replace('#', '');
+    
+    const r1 = parseInt(hex1.substr(0, 2), 16);
+    const g1 = parseInt(hex1.substr(2, 2), 16);
+    const b1 = parseInt(hex1.substr(4, 2), 16);
+    
+    const r2 = parseInt(hex2.substr(0, 2), 16);
+    const g2 = parseInt(hex2.substr(2, 2), 16);
+    const b2 = parseInt(hex2.substr(4, 2), 16);
+    
+    const r = Math.round(r1 + (r2 - r1) * factor);
+    const g = Math.round(g1 + (g2 - g1) * factor);
+    const b = Math.round(b1 + (b2 - b1) * factor);
+    
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+  
+  getCurrentValues() {
+    return [this.dice[0].value, this.dice[1].value];
+  }
+  
+  // Método para ocultar dados manualmente
+  hideDice() {
+    this.showDice = false;
+    this.isAnimating = false;
+    console.log('Dados ocultados manualmente');
   }
 }

@@ -2,7 +2,8 @@ export class GameUI {
   constructor(game) {
     this.game = game;
     this.turnTimer = null;
-    this.currentTurnTime = 60;
+    this.currentTurnTime = 15;
+    this.timerPhase = 'ROLL_DICE'; // 'ROLL_DICE' o 'DECISION'
     this.selectedPlayerCount = 0;
     this.selectedWinAmount = 7500000; // Valor por defecto
     
@@ -49,7 +50,20 @@ export class GameUI {
       
       // Botones del modal de game over
       playAgainBtn: document.getElementById('play-again-btn'),
-      closeGameOverBtn: document.getElementById('close-game-over-btn')
+      closeGameOverBtn: document.getElementById('close-game-over-btn'),
+      
+      // Modal de negociación
+      negotiationModal: document.getElementById('negotiation-modal'),
+      currentPlayerName: document.getElementById('current-player-name'),
+      currentPlayerProperties: document.getElementById('current-player-properties'),
+      otherPlayersList: document.getElementById('other-players-list'),
+      closeNegotiationBtn: document.getElementById('close-negotiation-btn'),
+      
+      // Modal de opciones de cárcel
+      jailOptionsModal: document.getElementById('jail-options-modal'),
+      jailPlayerName: document.getElementById('jail-player-name'),
+      jailPayBtn: document.getElementById('jail-pay-btn'),
+      jailAcceptBtn: document.getElementById('jail-accept-btn')
     };
     
     this.setupEventListeners();
@@ -57,6 +71,7 @@ export class GameUI {
     this.game.onLogMessage = this.addLogMessage.bind(this);
     this.game.onGameSetup = this.showGameSetup.bind(this);
     this.game.onGameOver = this.showGameOver.bind(this);
+    this.game.onNegotiationStart = this.showNegotiation.bind(this);
     
     // Validar elementos críticos
     this.validateElements();
@@ -163,6 +178,32 @@ export class GameUI {
         this.hideGameOver();
       }
     });
+
+    // Event listeners para el modal de negociación
+    this.elements.closeNegotiationBtn.addEventListener('click', () => {
+      this.hideNegotiation();
+    });
+
+    this.elements.negotiationModal.addEventListener('click', (e) => {
+      if (e.target === this.elements.negotiationModal) {
+        this.hideNegotiation();
+      }
+    });
+
+    // Event listeners para el modal de opciones de cárcel
+    this.elements.jailPayBtn.addEventListener('click', () => {
+      this.game.handleJailPayment();
+    });
+
+    this.elements.jailAcceptBtn.addEventListener('click', () => {
+      this.game.handleJailAcceptance();
+    });
+
+    this.elements.jailOptionsModal.addEventListener('click', (e) => {
+      if (e.target === this.elements.jailOptionsModal) {
+        // No permitir cerrar el modal haciendo clic fuera, el jugador debe elegir
+      }
+    });
   }
   
   updateUI(gameState) {
@@ -185,7 +226,8 @@ export class GameUI {
     // Actualizar estado de los botones
     this.elements.rollDiceBtn.disabled = !canRollDice;
     this.elements.buyPropertyBtn.disabled = !canBuyProperty;
-    this.elements.endTurnBtn.disabled = !canEndTurn;
+    // Habilitar el botón de terminar turno si puede terminar O si está esperando decisión de compra
+    this.elements.endTurnBtn.disabled = !(canEndTurn || waitingForBuyDecision);
     
     // Actualizar texto de los botones
     if (currentPlayer && currentPlayer.isInJail) {
@@ -199,6 +241,13 @@ export class GameUI {
       this.elements.buyPropertyBtn.textContent = `Comprar ${space.name} ($${space.price.toLocaleString()})`;
     } else {
       this.elements.buyPropertyBtn.textContent = 'Comprar Propiedad';
+    }
+    
+    // Actualizar texto del botón de terminar turno
+    if (waitingForBuyDecision) {
+      this.elements.endTurnBtn.textContent = 'Pasar Turno (No Comprar)';
+    } else {
+      this.elements.endTurnBtn.textContent = 'Terminar Turno';
     }
     
     // Reiniciar temporizador si es el turno de un jugador nuevo
@@ -231,17 +280,27 @@ export class GameUI {
     this.elements.turnStatus.textContent = statusMessage;
   }
   
-  startTurnTimer() {
+  startTurnTimer(phase = 'ROLL_DICE') {
     // Detener temporizador anterior si existe
     this.stopTurnTimer();
     
-    // Reiniciar tiempo
-    this.currentTurnTime = 60;
+    // Configurar fase del temporizador
+    this.timerPhase = phase;
+    
+    // Reiniciar tiempo a 15 segundos
+    this.currentTurnTime = 15;
     this.elements.timerSeconds.textContent = this.currentTurnTime;
     
     // Remover clases de estado
     const timerCircle = document.querySelector('.timer-circle');
     timerCircle.classList.remove('warning', 'danger');
+    
+    // Mostrar mensaje según la fase
+    if (phase === 'ROLL_DICE') {
+      this.addLogMessage('🎲 Tienes 15 segundos para tirar los dados');
+    } else if (phase === 'DECISION') {
+      this.addLogMessage('⏰ Tienes 15 segundos para decidir');
+    }
     
     // Iniciar nuevo temporizador
     this.turnTimer = setInterval(() => {
@@ -249,14 +308,14 @@ export class GameUI {
       this.elements.timerSeconds.textContent = this.currentTurnTime;
       
       // Actualizar progreso visual
-      const progress = (60 - this.currentTurnTime) / 60 * 360;
+      const progress = (15 - this.currentTurnTime) / 15 * 360;
       timerCircle.style.background = `conic-gradient(var(--primary-yellow) ${progress}deg, transparent ${progress}deg)`;
       
       // Estados de alerta
-      if (this.currentTurnTime <= 10) {
+      if (this.currentTurnTime <= 3) {
         timerCircle.classList.add('danger');
         timerCircle.classList.remove('warning');
-      } else if (this.currentTurnTime <= 20) {
+      } else if (this.currentTurnTime <= 7) {
         timerCircle.classList.add('warning');
         timerCircle.classList.remove('danger');
       }
@@ -277,32 +336,36 @@ export class GameUI {
   
   handleTimeUp() {
     this.stopTurnTimer();
-    this.addLogMessage('⏰ ¡Tiempo agotado! Pasando automáticamente al siguiente jugador...');
     
-    // Forzar fin de turno inmediatamente
-    setTimeout(() => {
-      // Si está esperando decisión de compra, cancelarla automáticamente
-      if (this.game.waitingForBuyDecision) {
-        this.addLogMessage('❌ Tiempo agotado - Compra cancelada automáticamente');
-        this.game.skipPurchase();
+    if (this.timerPhase === 'ROLL_DICE') {
+      // Fase 1: Si no tiró los dados, tirarlos automáticamente
+      if (this.game.canRollDice && this.game.gamePhase === 'PLAYING') {
+        this.game.autoRollDice();
+        
+        // Después de tirar los dados, iniciar la fase de decisión
+        setTimeout(() => {
+          this.startDecisionPhase();
+        }, 2000); // Esperar 2 segundos para que se complete la animación
+      } else {
+        this.game.autoEndTurn();
       }
-      // Si puede terminar turno, hacerlo
-      else if (this.game.canEndTurn) {
-        this.game.endTurn();
-      }
-      // Si puede tirar dados pero no lo hizo, pasar turno
-      else if (this.game.canRollDice) {
-        this.addLogMessage('❌ No tiró los dados - Turno perdido');
-        this.game.canRollDice = false;
-        this.game.canEndTurn = true;
-        this.game.endTurn();
-      }
-    }, 500); // Reducido a 500ms para respuesta más rápida
+    } else if (this.timerPhase === 'DECISION') {
+      // Fase 2: Si no decidió, terminar turno automáticamente
+      this.game.autoEndTurn();
+    }
   }
-  
+
+  // Método para iniciar la fase de decisión
+  startDecisionPhase() {
+    if (this.game.canEndTurn || this.game.waitingForBuyDecision) {
+      this.startTurnTimer('DECISION');
+    }
+  }
+
+  // Método para forzar fin de turno
   updateCurrentPlayerInfo(player) {
     if (!player) return;
-    
+
     // Información básica del jugador
     if (this.elements.currentPlayer) {
       this.elements.currentPlayer.innerHTML = `
@@ -330,7 +393,7 @@ export class GameUI {
     
     // Propiedades del jugador
     const propertiesCount = player.properties + player.railroads + player.utilities;
-    this.elements.playerProperties.innerHTML = `
+    let propertiesHtml = `
       <div class="properties-summary">
         <div>Propiedades: ${player.properties}</div>
         <div>Transportes: ${player.railroads}</div>
@@ -338,6 +401,39 @@ export class GameUI {
         <div><strong>Total: ${propertiesCount}</strong></div>
       </div>
     `;
+
+    // Mostrar lista detallada de propiedades si el jugador tiene alguna
+    if (propertiesCount > 0) {
+      propertiesHtml += '<div class="owned-properties">';
+      
+      if (player.propertiesList && player.propertiesList.length > 0) {
+        propertiesHtml += '<div class="property-group"><strong>🏠 Propiedades:</strong><ul>';
+        player.propertiesList.forEach(prop => {
+          propertiesHtml += `<li style="color: ${prop.color || '#000'}">${prop.name}</li>`;
+        });
+        propertiesHtml += '</ul></div>';
+      }
+
+      if (player.railroadsList && player.railroadsList.length > 0) {
+        propertiesHtml += '<div class="property-group"><strong>🚂 Transportes:</strong><ul>';
+        player.railroadsList.forEach(rail => {
+          propertiesHtml += `<li>${rail.name}</li>`;
+        });
+        propertiesHtml += '</ul></div>';
+      }
+
+      if (player.utilitiesList && player.utilitiesList.length > 0) {
+        propertiesHtml += '<div class="property-group"><strong>⚡ Servicios:</strong><ul>';
+        player.utilitiesList.forEach(util => {
+          propertiesHtml += `<li>${util.name}</li>`;
+        });
+        propertiesHtml += '</ul></div>';
+      }
+      
+      propertiesHtml += '</div>';
+    }
+
+    this.elements.playerProperties.innerHTML = propertiesHtml;
     
     // Estado especial
     if (player.isInJail) {
@@ -729,7 +825,91 @@ export class GameUI {
   hideGameOver() {
     this.elements.gameOverModal.classList.remove('show');
   }
-  
+
+  showNegotiation(data) {
+    const { currentPlayer, otherPlayers } = data;
+    
+    // Actualizar título con nombre del jugador
+    this.elements.currentPlayerName.textContent = `${currentPlayer.name} - Tu inventario`;
+    
+    // Mostrar propiedades del jugador actual
+    this.elements.currentPlayerProperties.innerHTML = this.renderPlayerProperties(currentPlayer);
+    
+    // Mostrar otros jugadores
+    this.elements.otherPlayersList.innerHTML = otherPlayers.map(player => `
+      <div class="player-card" data-player-id="${player.id}">
+        <div class="player-card-header">
+          <span class="player-card-name" style="color: ${player.color}">${player.name}</span>
+          <span class="player-card-properties">
+            ${player.properties.length + player.railroads.length + player.utilities.length} propiedades
+          </span>
+        </div>
+        <div class="player-card-properties">
+          💰 $${player.money.toLocaleString()}
+        </div>
+        <button class="negotiate-btn" onclick="window.gameUI.showPlayerProperties('${player.id}')">
+          Ver Propiedades
+        </button>
+      </div>
+    `).join('');
+    
+    // Mostrar modal
+    this.elements.negotiationModal.classList.add('show');
+  }
+
+  hideNegotiation() {
+    this.elements.negotiationModal.classList.remove('show');
+  }
+
+  renderPlayerProperties(player) {
+    let html = '';
+    
+    // Propiedades
+    if (player.properties && player.properties.length > 0) {
+      html += '<h4>🏠 Propiedades:</h4>';
+      player.properties.forEach(prop => {
+        html += `
+          <div class="property-item" data-property-id="${prop.id}">
+            <span class="property-name" style="color: ${prop.color}">${prop.name}</span>
+            <span class="property-type">Propiedad</span>
+          </div>
+        `;
+      });
+    }
+    
+    // Transportes
+    if (player.railroads && player.railroads.length > 0) {
+      html += '<h4>🚂 Transportes:</h4>';
+      player.railroads.forEach(rail => {
+        html += `
+          <div class="property-item" data-property-id="${rail.id}">
+            <span class="property-name">${rail.name}</span>
+            <span class="property-type">Transporte</span>
+          </div>
+        `;
+      });
+    }
+    
+    // Servicios
+    if (player.utilities && player.utilities.length > 0) {
+      html += '<h4>⚡ Servicios:</h4>';
+      player.utilities.forEach(util => {
+        html += `
+          <div class="property-item" data-property-id="${util.id}">
+            <span class="property-name">${util.name}</span>
+            <span class="property-type">Servicio</span>
+          </div>
+        `;
+      });
+    }
+    
+    if (html === '') {
+      html = '<p>No tienes propiedades para intercambiar</p>';
+    }
+    
+    return html;
+  }
+
   showRules() {
     const rulesContent = `
       <div class="modal-content">
@@ -792,62 +972,70 @@ export class GameUI {
   }
   
   addLogMessage(message) {
+    // Función para clasificar el tipo de mensaje
+    const getMessageType = (msg) => {
+      if (msg.includes('🚶') || msg.includes('se mueve') || msg.includes('llega a')) {
+        return 'move';
+      } else if (msg.includes('💰') || msg.includes('cobra') || msg.includes('recibe') || msg.includes('LARGADA')) {
+        return 'money';
+      } else if (msg.includes('✅') || msg.includes('compra') || msg.includes('🏠') || msg.includes('⚡')) {
+        return 'property';
+      } else if (msg.includes('❌') || msg.includes('bancarrota') || msg.includes('no puede') || msg.includes('💸')) {
+        return 'danger';
+      } else if (msg.includes('🎲') || msg.includes('dados') || msg.includes('turno') || msg.includes('⏰')) {
+        return 'info';
+      }
+      return 'info';
+    };
+
     // Agregar al log del centro del tablero
     if (this.elements.centerLogMessages) {
       const centerMessageElement = document.createElement('div');
-      centerMessageElement.className = 'center-log-entry';
+      const messageType = getMessageType(message);
+      centerMessageElement.className = `log-entry ${messageType}`;
       
-      // Solo el mensaje, sin timestamp para ahorrar espacio
-      centerMessageElement.textContent = message;
-      
-      // Clasificar mensajes por tipo
-      if (message.includes('GANA') || message.includes('Felicitaciones')) {
-        centerMessageElement.classList.add('success');
-      } else if (message.includes('bancarrota') || message.includes('no puede pagar')) {
-        centerMessageElement.classList.add('danger');
-      } else if (message.includes('compra') || message.includes('cobra') || message.includes('dobles')) {
-        centerMessageElement.classList.add('important');
+      // Agregar clase especial para mensajes importantes
+      if (message.includes('GANA') || message.includes('compra') || message.includes('dobles')) {
+        centerMessageElement.classList.add('highlight');
       }
+      
+      centerMessageElement.textContent = message;
       
       this.elements.centerLogMessages.appendChild(centerMessageElement);
       
-      // Mantener solo los últimos 6 mensajes en el centro
-      while (this.elements.centerLogMessages.children.length > 6) {
+      // Mantener solo los últimos 2 mensajes en el centro para un diseño más limpio
+      while (this.elements.centerLogMessages.children.length > 2) {
         this.elements.centerLogMessages.removeChild(this.elements.centerLogMessages.firstChild);
       }
       
-      // Scroll al final
-      this.elements.centerLogMessages.scrollTop = this.elements.centerLogMessages.scrollHeight;
+      // No necesitamos scroll ya que siempre mostramos solo 2 mensajes
     }
-    
+
     // Mantener el log original en el panel lateral para referencia completa
     if (this.elements.logMessages) {
       const messageElement = document.createElement('div');
-      messageElement.className = 'log-entry';
+      const messageType = getMessageType(message);
+      messageElement.className = `log-entry ${messageType}`;
       
-      // Clasificar mensajes por tipo
-      if (message.includes('GANA') || message.includes('Felicitaciones')) {
-        messageElement.classList.add('success');
-      } else if (message.includes('bancarrota') || message.includes('no puede pagar')) {
-        messageElement.classList.add('danger');
-      } else if (message.includes('compra') || message.includes('cobra') || message.includes('dobles')) {
-        messageElement.classList.add('important');
-      }
-      
-      messageElement.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+      // Agregar timestamp para el log completo
+      const timestamp = new Date().toLocaleTimeString('es-AR', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+      });
+      messageElement.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
       
       this.elements.logMessages.appendChild(messageElement);
       
-      // Scroll al final
-      this.elements.logMessages.scrollTop = this.elements.logMessages.scrollHeight;
-      
-      // Limitar el número de mensajes (mantener solo los últimos 50)
+      // Mantener solo los últimos 50 mensajes
       while (this.elements.logMessages.children.length > 50) {
         this.elements.logMessages.removeChild(this.elements.logMessages.firstChild);
       }
+      
+      // No hacer scroll automático para mantener limpieza visual
     }
   }
-  
+
   clearLog() {
     if (this.elements.centerLogMessages) {
       this.elements.centerLogMessages.innerHTML = '';
@@ -914,6 +1102,89 @@ export class GameUI {
     console.log(ranking);
   }
   
+  // Mostrar modal de opciones de cárcel
+  showJailOptionsModal(player) {
+    console.log('showJailOptionsModal called for player:', player.name);
+    console.log('Elements found:', {
+      modal: !!this.elements.jailOptionsModal,
+      playerName: !!this.elements.jailPlayerName,
+      payBtn: !!this.elements.jailPayBtn,
+      acceptBtn: !!this.elements.jailAcceptBtn
+    });
+    
+    if (!this.elements.jailOptionsModal) {
+      console.error('Jail options modal not found!');
+      return;
+    }
+    
+    this.elements.jailPlayerName.textContent = `${player.name}, ¿qué decides hacer?`;
+    
+    // Verificar si el jugador tiene dinero suficiente para pagar
+    const jailFee = 750000;
+    if (player.money < jailFee) {
+      this.elements.jailPayBtn.disabled = true;
+      this.elements.jailPayBtn.textContent = `Pagar $${jailFee.toLocaleString()} (Sin dinero)`;
+      this.elements.jailPayBtn.style.opacity = '0.5';
+    } else {
+      this.elements.jailPayBtn.disabled = false;
+      this.elements.jailPayBtn.textContent = `Pagar $${jailFee.toLocaleString()}`;
+      this.elements.jailPayBtn.style.opacity = '1';
+    }
+    
+    console.log('Adding show class to modal');
+    this.elements.jailOptionsModal.classList.add('show');
+    console.log('Modal should now be visible');
+  }
+
+  hideJailOptions() {
+    console.log('hideJailOptions called');
+    if (this.elements.jailOptionsModal) {
+      this.elements.jailOptionsModal.classList.remove('show');
+      console.log('Modal hidden successfully');
+    } else {
+      console.error('Jail options modal not found!');
+    }
+  }
+
+  // Mostrar propiedades de un jugador específico
+  showPlayerProperties(playerId) {
+    const player = this.game.players.find(p => p.id === playerId);
+    if (!player) return;
+
+    // Crear modal dinámico para mostrar propiedades
+    let modal = document.getElementById('player-properties-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'player-properties-modal';
+      modal.className = 'modal';
+      document.body.appendChild(modal);
+    }
+
+    const propertiesHtml = this.renderPlayerProperties(player);
+    
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Propiedades de ${player.name}</h2>
+          <button class="close-btn" onclick="this.parentElement.parentElement.parentElement.style.display='none'">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="player-properties-display">
+            ${propertiesHtml || '<p>Este jugador no tiene propiedades</p>'}
+          </div>
+          <div class="player-money-display">
+            <h3>💰 Dinero: $${player.money.toLocaleString()}</h3>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-btn" onclick="this.parentElement.parentElement.parentElement.style.display='none'">Cerrar</button>
+        </div>
+      </div>
+    `;
+
+    modal.style.display = 'block';
+  }
+
   // Funciones de utilidad para formatear valores
   formatMoney(amount) {
     return new Intl.NumberFormat('es-AR', {
