@@ -3,11 +3,15 @@ import { Player } from '../player/Player.js';
 import { communityChestCards, chanceCards, destinyCards, shuffleCards } from '../board/cards.js';
 import { boardSpaces } from '../board/spaces.js';
 import { DiceAnimation } from '../ui/DiceAnimation.js';
+import SoundManager from '../sound/SoundManager.js';
 
 export class Game {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    
+    // Inicializar administrador de sonidos
+    this.soundManager = new SoundManager();
     this.board = new Board(canvas, this.ctx);
     this.diceAnimation = new DiceAnimation(canvas);
     
@@ -271,11 +275,15 @@ export class Game {
         this.waitingForBuyDecision = true;
         this.logMessage(`🏠 ${space.name} está disponible por $${space.price.toLocaleString()}`);
         this.logMessage(`💰 ${currentPlayer.name} tiene $${currentPlayer.money.toLocaleString()}`);
-        this.logMessage(`❓ ¿Desea comprar esta propiedad? Presiona 'B' para comprar o 'Enter' para pasar turno`);
+        
+        // Mostrar botones centrales en lugar del mensaje tradicional
+        this.ui.showCenterButtons(true, space.name, space.price);
       } else {
         this.logMessage(`🏠 ${space.name} está disponible por $${space.price.toLocaleString()}`);
         this.logMessage(`❌ ${currentPlayer.name} no tiene suficiente dinero ($${currentPlayer.money.toLocaleString()})`);
         this.canEndTurn = true;
+        // Mostrar solo botón de pasar turno
+        this.ui.showCenterButtons(false, space.name, space.price);
       }
     } else if (space.owner !== currentPlayer.id) {
       // Propiedad ocupada - pagar alquiler automáticamente
@@ -293,6 +301,8 @@ export class Game {
     } else {
       this.logMessage(`🏠 ${currentPlayer.name} está en su propia propiedad`);
       this.canEndTurn = true;
+      // Mostrar solo botón de pasar turno
+      this.ui.showCenterButtons(false, space.name, 0);
     }
   }
   
@@ -305,11 +315,15 @@ export class Game {
         this.waitingForBuyDecision = true;
         this.logMessage(`🚂 ${space.name} está disponible por $${space.price.toLocaleString()}`);
         this.logMessage(`💰 ${currentPlayer.name} tiene $${currentPlayer.money.toLocaleString()}`);
-        this.logMessage(`❓ ¿Desea comprar este transporte? Presiona 'B' para comprar o 'Enter' para pasar turno`);
+        
+        // Mostrar botones centrales
+        this.ui.showCenterButtons(true, space.name, space.price);
       } else {
         this.logMessage(`🚂 ${space.name} está disponible por $${space.price.toLocaleString()}`);
         this.logMessage(`❌ ${currentPlayer.name} no tiene suficiente dinero ($${currentPlayer.money.toLocaleString()})`);
         this.canEndTurn = true;
+        // Mostrar solo botón de pasar turno
+        this.ui.showCenterButtons(false, space.name, space.price);
       }
     } else if (space.owner !== currentPlayer.id) {
       const owner = this.players[space.owner];
@@ -408,9 +422,20 @@ export class Game {
     const card = this.destinyDeck[this.destinyIndex];
     this.destinyIndex = (this.destinyIndex + 1) % this.destinyDeck.length;
     
-    this.logMessage(`🎯 ${currentPlayer.name} saca una carta de DESTINO:`);
-    this.logMessage(`${card.title} - ${card.description}`);
-    this.processDestinyCard(card);
+    this.logMessage(`🎯 ${currentPlayer.name} saca una carta de DESTINO`);
+    
+    // Mostrar la carta con animación
+    this.ui.showDestinyCard(`${card.title}\n\n${card.description}`);
+    
+    // Guardar la carta para procesarla después
+    this.currentDestinyCard = card;
+  }
+  
+  continueAfterDestiny() {
+    if (this.currentDestinyCard) {
+      this.processDestinyCard(this.currentDestinyCard);
+      this.currentDestinyCard = null;
+    }
   }
 
   handleNegotiationLanding() {
@@ -723,6 +748,12 @@ export class Game {
       this.logMessage(`✅ ${currentPlayer.name} compra ${space.name} por $${space.price.toLocaleString()}`);
       this.logMessage(`💰 ${currentPlayer.name} ahora tiene $${currentPlayer.money.toLocaleString()}`);
       
+      // Reproducir sonido de compra exitosa
+      this.soundManager.playPurchase();
+      
+      // Ocultar botones centrales
+      this.ui.hideCenterButtons();
+      
       // Verificar monopolios de propiedades
       if (space.type === 'PROPERTY') {
         const monopolies = currentPlayer.checkForMonopoly(this.board.spaces);
@@ -756,6 +787,22 @@ export class Game {
     
     this.updateGameState();
     return success;
+  }
+  
+  skipPurchase() {
+    if (!this.waitingForBuyDecision) return;
+    
+    const currentPlayer = this.getCurrentPlayer();
+    const space = this.board.getSpace(currentPlayer.position);
+    
+    this.logMessage(`⏭️ ${currentPlayer.name} decide no comprar ${space.name}`);
+    
+    this.waitingForBuyDecision = false;
+    this.canBuyProperty = false;
+    this.canEndTurn = true;
+    
+    this.ui.hideCenterButtons();
+    this.updateGameState();
   }
   
   skipPurchase() {
@@ -1014,6 +1061,9 @@ export class Game {
       currentStep++;
       currentPos = (currentPos + 1) % 28;
       
+      // Reproducir sonido de paso
+      this.soundManager.playStep();
+      
       // Actualizar posición del jugador
       player.position = currentPos;
       player.updateVisualPosition(this.board);
@@ -1022,6 +1072,11 @@ export class Game {
       if (currentPos === 0 && currentStep < totalSpaces) {
         const salary = player.collectSalary();
         this.logMessage(`💰 ${player.name} pasa por LARGADA y cobra $${salary.toLocaleString()}`);
+        
+        // Reproducir sonido especial para LARGADA
+        setTimeout(() => {
+          this.soundManager.playSalary();
+        }, 100);
       }
       
       // El tablero se redibuja automáticamente en el gameLoop

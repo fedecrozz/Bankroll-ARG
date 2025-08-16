@@ -20,7 +20,102 @@ export class DiceAnimation {
       ambient: '#D0D0D0'      // Luz ambiental
     };
     
+    // Inicializar sonidos de dados
+    this.initializeSounds();
+    
     this.initializeDice();
+  }
+  
+  initializeSounds() {
+    // Crear sonidos sintéticos para los dados
+    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    this.sounds = {
+      roll: () => this.playDiceRollSound(),
+      bounce: () => this.playDiceBounceSound(),
+      settle: () => this.playDiceSettleSound()
+    };
+  }
+  
+  playDiceRollSound() {
+    // Sonido de dados rodando - ruido blanco con filtro
+    const duration = 0.3;
+    const gainNode = this.audioContext.createGain();
+    const filter = this.audioContext.createBiquadFilter();
+    
+    // Crear ruido blanco
+    const bufferSize = this.audioContext.sampleRate * duration;
+    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+    
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.3;
+    }
+    
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer;
+    
+    // Configurar filtro para simular sonido de dados
+    filter.type = 'bandpass';
+    filter.frequency.value = 800;
+    filter.Q.value = 2;
+    
+    // Configurar envolvente
+    gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.15, this.audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+    
+    source.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+    
+    source.start();
+    source.stop(this.audioContext.currentTime + duration);
+  }
+  
+  playDiceBounceSound() {
+    // Sonido de rebote - tono breve
+    const frequency = 200 + Math.random() * 300;
+    const duration = 0.1;
+    
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+    
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.5, this.audioContext.currentTime + duration);
+    
+    gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.1, this.audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+    
+    oscillator.start();
+    oscillator.stop(this.audioContext.currentTime + duration);
+  }
+  
+  playDiceSettleSound() {
+    // Sonido de asentamiento - clic suave
+    const frequency = 150;
+    const duration = 0.05;
+    
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+    
+    oscillator.type = 'square';
+    oscillator.frequency.value = frequency;
+    
+    gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.05, this.audioContext.currentTime + 0.005);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+    
+    oscillator.start();
+    oscillator.stop(this.audioContext.currentTime + duration);
   }
   
   initializeDice() {
@@ -64,6 +159,9 @@ export class DiceAnimation {
     this.showDice = true; // Mostrar dados al iniciar animación
     this.animationProgress = 0;
     this.onComplete = onComplete; // Guardar el callback
+    
+    // Reproducir sonido de dados al comenzar
+    this.sounds.roll();
     
     // Configurar valores finales
     this.dice[0].finalValue = dice1Value;
@@ -135,10 +233,18 @@ export class DiceAnimation {
         if (die.x < margin || die.x > this.canvas.width - margin) {
           die.velocityX *= -0.7;
           die.x = Math.max(margin, Math.min(this.canvas.width - margin, die.x));
+          // Sonido de rebote
+          if (Math.abs(die.velocityX) > 1) {
+            this.sounds.bounce();
+          }
         }
         if (die.y < margin || die.y > this.canvas.height - margin) {
           die.velocityY *= -0.7;
           die.y = Math.max(margin, Math.min(this.canvas.height - margin, die.y));
+          // Sonido de rebote
+          if (Math.abs(die.velocityY) > 1) {
+            this.sounds.bounce();
+          }
         }
         
         // Actualizar rotaciones
@@ -168,6 +274,8 @@ export class DiceAnimation {
           die.velocityRotX = 0;
           die.velocityRotY = 0;
           die.velocityRotZ = 0;
+          // Sonido de asentamiento
+          this.sounds.settle();
           console.log(`Dado ${index + 1} asentado con valor: ${die.value}`);
         }
       }
@@ -416,5 +524,17 @@ export class DiceAnimation {
     this.showDice = false;
     this.isAnimating = false;
     console.log('Dados ocultados manualmente');
+  }
+  
+  // Método para actualizar el tamaño del canvas
+  updateCanvasSize() {
+    // Reposicionar dados cuando cambia el tamaño del canvas
+    if (this.dice && this.dice.length >= 2) {
+      this.dice[0].x = this.canvas.width / 2 - 80;
+      this.dice[0].y = this.canvas.height / 2;
+      
+      this.dice[1].x = this.canvas.width / 2 + 20;
+      this.dice[1].y = this.canvas.height / 2;
+    }
   }
 }

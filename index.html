@@ -170,30 +170,112 @@
         <div class="board-container">
           <canvas id="game-canvas" width="600" height="600"></canvas>
           
-          <!-- Centro del tablero con registro del juego -->
-          <div class="board-center">
-            <div class="current-turn-info">
-              <div class="turn-header">
-                <h3 id="current-turn-player">Turno de Jugador</h3>
-                <div class="turn-timer">
-                  <div class="timer-circle">
-                    <span id="timer-seconds">15</span>
-                  </div>
-                </div>
+          <!-- Botón central para tirar dados -->
+          <div id="center-dice-button" class="center-dice-button" style="display: none;">
+            <button id="center-roll-dice-btn" class="center-dice-btn">
+              <span class="dice-icon">🎲</span>
+              <span class="dice-text">Tirar Dados</span>
+            </button>
+          </div>
+          
+          <!-- Avatares de jugadores en las esquinas -->
+          <div class="player-avatars">
+            <div id="player-avatar-0" class="player-avatar corner-top-left">
+              <div class="avatar-circle">
+                <span class="avatar-initial">J1</span>
               </div>
-              <div class="turn-actions">
-                <div id="turn-status">Presiona ESPACIO para tirar dados</div>
+              <div class="avatar-info">
+                <div class="avatar-name">Jugador 1</div>
+                <div class="avatar-timer">15s</div>
               </div>
             </div>
             
-            <div class="game-log-center">
-              <h4>📜 Registro del Juego <span class="activity-indicator">●</span></h4>
-              <div id="center-log-messages"></div>
+            <div id="player-avatar-1" class="player-avatar corner-top-right">
+              <div class="avatar-circle">
+                <span class="avatar-initial">J2</span>
+              </div>
+              <div class="avatar-info">
+                <div class="avatar-name">Jugador 2</div>
+                <div class="avatar-timer">15s</div>
+              </div>
+            </div>
+            
+            <div id="player-avatar-2" class="player-avatar corner-bottom-left">
+              <div class="avatar-circle">
+                <span class="avatar-initial">J3</span>
+              </div>
+              <div class="avatar-info">
+                <div class="avatar-name">Jugador 3</div>
+                <div class="avatar-timer">15s</div>
+              </div>
+            </div>
+            
+            <div id="player-avatar-3" class="player-avatar corner-bottom-right">
+              <div class="avatar-circle">
+                <span class="avatar-initial">J4</span>
+              </div>
+              <div class="avatar-info">
+                <div class="avatar-name">Jugador 4</div>
+                <div class="avatar-timer">15s</div>
+              </div>
+            </div>
+            
+            <div id="player-avatar-4" class="player-avatar corner-middle-left">
+              <div class="avatar-circle">
+                <span class="avatar-initial">J5</span>
+              </div>
+              <div class="avatar-info">
+                <div class="avatar-name">Jugador 5</div>
+                <div class="avatar-timer">15s</div>
+              </div>
             </div>
           </div>
+          
+          <!-- Botones centrales después de tirar dados -->
+          <div id="center-action-buttons" class="center-action-buttons" style="display: none;">
+            <button id="center-buy-btn" class="center-action-btn buy-btn">
+              <span class="btn-icon">🏠</span>
+              <span class="btn-text">Comprar</span>
+              <span class="btn-price">$0</span>
+            </button>
+            <button id="center-pass-btn" class="center-action-btn pass-btn">
+              <span class="btn-icon">⏭️</span>
+              <span class="btn-text">Pasar Turno</span>
+            </button>
+          </div>
+          
+          <!-- Modal de carta de destino -->
+          <div id="destiny-card-modal" class="destiny-card-modal" style="display: none;">
+            <div class="card-container">
+              <div class="card-flip">
+                <div class="card-front">
+                  <div class="card-back-design">
+                    <h3>DESTINO</h3>
+                    <div class="card-pattern"></div>
+                  </div>
+                </div>
+                <div class="card-back">
+                  <div class="card-content">
+                    <h3>DESTINO</h3>
+                    <p id="destiny-card-text">Mensaje de la carta</p>
+                    <button id="destiny-card-ok" class="destiny-ok-btn">Entendido</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Mensajes flotantes del juego -->
+          <div id="floating-messages" class="floating-messages"></div>
         </div>
         
         <aside class="game-panel">
+          <!-- Panel de todos los jugadores -->
+          <div class="all-players-panel">
+            <h3>👥 Todos los Jugadores</h3>
+            <div id="all-players-info"></div>
+          </div>
+          
           <div class="player-info">
             <h3>Información del Jugador</h3>
             <div id="current-player"></div>
@@ -213,17 +295,6 @@
                 <span class="value danger">-$1.000.000</span>
               </div>
             </div>
-          </div>
-          
-          <div class="game-actions">
-            <button id="roll-dice-btn">Tirar Dados</button>
-            <button id="buy-property-btn" disabled>Comprar Propiedad</button>
-            <button id="end-turn-btn" disabled>Terminar Turno</button>
-          </div>
-          
-          <div class="all-players">
-            <h4>Todos los Jugadores</h4>
-            <div id="all-players-info"></div>
           </div>
         </aside>
       </main>

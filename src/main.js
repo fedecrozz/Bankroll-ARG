@@ -98,15 +98,18 @@ document.addEventListener('DOMContentLoaded', () => {
     import('./board/Board.js').then(module => {
       game.board = new module.Board(canvas, canvas.getContext('2d'));
       
-      // Actualizar animación de dados
-      if (game.diceAnimation) {
-        game.diceAnimation.updateCanvasSize();
-      }
-      
-      // Reposicionar jugadores
-      game.players.forEach(player => {
-        player.updateVisualPosition(game.board);
-      });
+      // Pequeño retraso para asegurar que todo esté inicializado
+      setTimeout(() => {
+        // Actualizar animación de dados
+        if (game.diceAnimation && typeof game.diceAnimation.updateCanvasSize === 'function') {
+          game.diceAnimation.updateCanvasSize();
+        }
+        
+        // Reposicionar jugadores
+        game.players.forEach(player => {
+          player.updateVisualPosition(game.board);
+        });
+      }, 100);
     });
   }
   
